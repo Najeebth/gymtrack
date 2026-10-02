@@ -1,0 +1,20 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Workout {
+  id          String   @id @default(uuid())
+  date        String
+  muscleGroup String
+  exercise    String
+  sets        Int
+  reps        Int
+  weightKg    Float
+  notes       String?
+  createdAt   DateTime @default(now())
+}

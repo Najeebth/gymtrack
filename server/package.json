@@ -1,0 +1,21 @@
+{
+  "name": "gymtrack-backend",
+  "version": "1.0.0",
+  "description": "Gym Progress Tracker Backend with Traffic Telemetry",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  }
+}
