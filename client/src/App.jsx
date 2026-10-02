@@ -143,7 +143,7 @@ export default function App() {
             justifyContent: 'center',
             gap: 6
           }}>
-          <Dumbbell size={16} /> Workouts
+          <Dumbbell size={16} /> My Workouts
         </button>
 
         <button 
