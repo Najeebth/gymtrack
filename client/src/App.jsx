@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Dumbbell, PlusCircle, Trash2, RefreshCw, BarChart2, ShieldCheck, Zap } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'https://gymtrack-prdf.onrender.com';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('workouts'); // 'workouts' | 'traffic' | 'health'
   const [workouts, setWorkouts] = useState([]);
@@ -25,7 +27,7 @@ export default function App() {
     setLoading(true);
     const start = performance.now();
     try {
-      const res = await fetch('/api/workouts');
+      const res = await fetch(`${API_BASE}/api/workouts`);
       const data = await res.json();
       setWorkouts(data);
       setLastApiLatency((performance.now() - start).toFixed(1));
@@ -39,7 +41,7 @@ export default function App() {
   // Fetch Traffic
   const fetchTraffic = async () => {
     try {
-      const res = await fetch('/api/traffic');
+      const res = await fetch(`${API_BASE}/api/traffic`);
       const data = await res.json();
       setTrafficLogs(data.requests || []);
     } catch (err) {
@@ -50,7 +52,7 @@ export default function App() {
   // Fetch Health
   const fetchHealth = async () => {
     try {
-      const res = await fetch('/api/health');
+      const res = await fetch(`${API_BASE}/api/health`);
       const data = await res.json();
       setHealthData(data);
     } catch (err) {
@@ -77,7 +79,7 @@ export default function App() {
     if (!formData.exercise.trim()) return;
 
     try {
-      const res = await fetch('/api/workouts', {
+      const res = await fetch(`${API_BASE}/api/workouts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -93,7 +95,7 @@ export default function App() {
 
   const handleDelete = async (id) => {
     try {
-      const res = await fetch(`/api/workouts/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/api/workouts/${id}`, { method: 'DELETE' });
       if (res.ok) fetchWorkouts();
     } catch (err) {
       console.error('Delete error:', err);
