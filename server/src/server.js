@@ -138,11 +138,31 @@ app.get('/api/traffic', (req, res) => {
   });
 });
 
-// GET all workouts from PostgreSQL
+// Normalizes a raw sets payload (array of {reps, weightKg}) into
+// Prisma nested-create rows with sequential setNumbers.
+function normalizeSets(rawSets) {
+  if (!Array.isArray(rawSets) || rawSets.length === 0) return [];
+  return rawSets.map((s, idx) => ({
+    setNumber: idx + 1,
+    reps: Number(s.reps),
+    weightKg: Number(s.weightKg)
+  }));
+}
+
+// GET all workouts from PostgreSQL (each with its nested sets)
+// Optional ?date=YYYY-MM-DD query param filters to workouts logged on that date.
 app.get('/api/workouts', async (req, res) => {
+  const { date } = req.query;
+
   try {
-    const workouts = await dbTrace('findMany Workout (ordered by createdAt desc)', () =>
-      prisma.workout.findMany({ orderBy: { createdAt: 'desc' } })
+    const workouts = await dbTrace(
+      date ? `findMany Workout (date:${date})` : 'findMany Workout (ordered by createdAt desc)',
+      () =>
+        prisma.workout.findMany({
+          where: date ? { date: String(date) } : undefined,
+          orderBy: { createdAt: 'desc' },
+          include: { sets: { orderBy: { setNumber: 'asc' } } }
+        })
     );
     res.json(workouts);
   } catch (err) {
@@ -151,26 +171,29 @@ app.get('/api/workouts', async (req, res) => {
   }
 });
 
-// POST a new workout entry to PostgreSQL
+// POST a new workout entry (with one or more sets) to PostgreSQL
 app.post('/api/workouts', async (req, res) => {
-  const { date, muscleGroup, exercise, sets, reps, weightKg, notes } = req.body;
+  const { date, muscleGroup, exercise, notes, sets } = req.body;
+  const normalizedSets = normalizeSets(sets);
 
-  if (!exercise || sets === undefined || reps === undefined || weightKg === undefined) {
-    return res.status(400).json({ error: 'Exercise, sets, reps, and weightKg are required.' });
+  if (!exercise || normalizedSets.length === 0) {
+    return res.status(400).json({ error: 'Exercise and at least one set (reps, weightKg) are required.' });
+  }
+  if (normalizedSets.some((s) => Number.isNaN(s.reps) || Number.isNaN(s.weightKg))) {
+    return res.status(400).json({ error: 'Each set requires valid numeric reps and weightKg.' });
   }
 
   try {
-    const workout = await dbTrace('create Workout', () =>
+    const workout = await dbTrace('create Workout (with sets)', () =>
       prisma.workout.create({
         data: {
           date: date || new Date().toISOString().split('T')[0],
           muscleGroup: muscleGroup || 'General',
           exercise: exercise.trim(),
-          sets: Number(sets),
-          reps: Number(reps),
-          weightKg: Number(weightKg),
-          notes: notes || ''
-        }
+          notes: notes || '',
+          sets: { create: normalizedSets }
+        },
+        include: { sets: { orderBy: { setNumber: 'asc' } } }
       })
     );
     res.status(201).json(workout);
@@ -180,7 +203,65 @@ app.post('/api/workouts', async (req, res) => {
   }
 });
 
-// DELETE a workout entry from PostgreSQL
+// POST additional set(s) onto an existing workout
+app.post('/api/workouts/:id/sets', async (req, res) => {
+  const { id } = req.params;
+  const newSets = Array.isArray(req.body.sets) ? req.body.sets : [req.body];
+
+  try {
+    const workout = await dbTrace(`findUnique Workout id:${id} (for set append)`, () =>
+      prisma.workout.findUnique({ where: { id }, include: { sets: true } })
+    );
+    if (!workout) {
+      return res.status(404).json({ error: 'Workout not found' });
+    }
+
+    const startingSetNumber = workout.sets.length;
+    const setsToCreate = newSets.map((s, idx) => ({
+      setNumber: startingSetNumber + idx + 1,
+      reps: Number(s.reps),
+      weightKg: Number(s.weightKg),
+      workoutId: id
+    }));
+
+    if (setsToCreate.some((s) => Number.isNaN(s.reps) || Number.isNaN(s.weightKg))) {
+      return res.status(400).json({ error: 'Each set requires valid numeric reps and weightKg.' });
+    }
+
+    await dbTrace('createMany WorkoutSet', () =>
+      prisma.workoutSet.createMany({ data: setsToCreate })
+    );
+
+    const updated = await dbTrace(`findUnique Workout id:${id} (after set append)`, () =>
+      prisma.workout.findUnique({ where: { id }, include: { sets: { orderBy: { setNumber: 'asc' } } } })
+    );
+
+    res.status(201).json(updated);
+  } catch (err) {
+    console.error('Error adding set(s) to workout in Postgres:', err);
+    res.status(500).json({ error: 'Failed to add set(s) to workout' });
+  }
+});
+
+// DELETE a single set from a workout
+app.delete('/api/workouts/:id/sets/:setId', async (req, res) => {
+  const { id, setId } = req.params;
+
+  try {
+    await dbTrace(`delete WorkoutSet id:${setId}`, () =>
+      prisma.workoutSet.delete({ where: { id: setId } })
+    );
+    const updated = await dbTrace(`findUnique Workout id:${id} (after set delete)`, () =>
+      prisma.workout.findUnique({ where: { id }, include: { sets: { orderBy: { setNumber: 'asc' } } } })
+    );
+    res.json(updated || { success: true });
+  } catch (err) {
+    console.error('Error deleting set in Postgres:', err);
+    res.status(404).json({ error: 'Set not found or already deleted' });
+  }
+});
+
+// DELETE a workout entry (and its sets, via cascade) from PostgreSQL
 app.delete('/api/workouts/:id', async (req, res) => {
   const { id } = req.params;
 

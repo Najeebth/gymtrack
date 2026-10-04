@@ -1,36 +1,73 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Dumbbell, PlusCircle, Trash2, RefreshCw, BarChart2, ShieldCheck, Zap, Map } from 'lucide-react';
+import { Activity, Dumbbell, PlusCircle, Trash2, RefreshCw, BarChart2, ShieldCheck, Zap, Map, Plus, X, CalendarDays } from 'lucide-react';
 import LiveTrafficMap from './LiveTrafficMap.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://gymtrack-prdf.onrender.com';
 
+// Returns just the weekday name for a 'YYYY-MM-DD' date string (e.g. "Sunday")
+function getWeekdayName(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { weekday: 'long' });
+}
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('workouts'); // 'workouts' | 'traffic' | 'health' | 'map'
+  const [activeTab, setActiveTab] = useState('workouts'); // 'workouts' | 'byDate' | 'traffic' | 'health' | 'map'
   const [workouts, setWorkouts] = useState([]);
   const [trafficLogs, setTrafficLogs] = useState([]);
   const [healthData, setHealthData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastApiLatency, setLastApiLatency] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [workoutsByDate, setWorkoutsByDate] = useState([]);
 
-  // Form State
+  // Form State — now holds an array of individual sets (reps + weight each)
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     muscleGroup: 'Chest',
     exercise: '',
-    sets: 3,
-    reps: 10,
-    weightKg: 60,
-    notes: ''
+    notes: '',
+    sets: [{ reps: 10, weightKg: 60 }]
   });
 
-  // Fetch Workouts
-  const fetchWorkouts = async () => {
+  // Add a blank set row to the form, pre-filled from the last set for convenience
+  const addSetRow = () => {
+    setFormData((prev) => {
+      const last = prev.sets[prev.sets.length - 1] || { reps: 10, weightKg: 60 };
+      return { ...prev, sets: [...prev.sets, { reps: last.reps, weightKg: last.weightKg }] };
+    });
+  };
+
+  // Remove a set row by index (keeps at least 1 row)
+  const removeSetRow = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      sets: prev.sets.length > 1 ? prev.sets.filter((_, i) => i !== index) : prev.sets
+    }));
+  };
+
+  // Update one field (reps/weightKg) of a specific set row
+  const updateSetRow = (index, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      sets: prev.sets.map((s, i) => (i === index ? { ...s, [field]: value } : s))
+    }));
+  };
+
+  // Fetch Workouts (optionally scoped server-side to a single date)
+  const fetchWorkouts = async (date) => {
     setLoading(true);
     const start = performance.now();
     try {
-      const res = await fetch(`${API_BASE}/api/workouts`);
+      const url = date ? `${API_BASE}/api/workouts?date=${encodeURIComponent(date)}` : `${API_BASE}/api/workouts`;
+      const res = await fetch(url);
       const data = await res.json();
-      setWorkouts(data);
+      if (date) {
+        setWorkoutsByDate(data);
+      } else {
+        setWorkouts(data);
+      }
       setLastApiLatency((performance.now() - start).toFixed(1));
     } catch (err) {
       console.error('Fetch error:', err);
@@ -72,8 +109,17 @@ export default function App() {
       return () => clearInterval(interval);
     } else if (activeTab === 'health') {
       fetchHealth();
+    } else if (activeTab === 'byDate') {
+      fetchWorkouts(selectedDate);
     }
   }, [activeTab]);
+
+  // Re-fetch the date-scoped list whenever the chosen date changes while on that tab
+  useEffect(() => {
+    if (activeTab === 'byDate') {
+      fetchWorkouts(selectedDate);
+    }
+  }, [selectedDate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -86,25 +132,67 @@ export default function App() {
         body: JSON.stringify(formData)
       });
       if (res.ok) {
-        setFormData({ ...formData, exercise: '', notes: '' });
-        fetchWorkouts();
+        setFormData({ ...formData, exercise: '', notes: '', sets: [{ reps: 10, weightKg: 60 }] });
+        refreshWorkouts();
       }
     } catch (err) {
       console.error('Submit error:', err);
     }
   };
 
+  // Re-fetches whichever workout list(s) are currently relevant on screen
+  const refreshWorkouts = () => {
+    fetchWorkouts();
+    if (activeTab === 'byDate') fetchWorkouts(selectedDate);
+  };
+
   const handleDelete = async (id) => {
     try {
       const res = await fetch(`${API_BASE}/api/workouts/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchWorkouts();
+      if (res.ok) refreshWorkouts();
     } catch (err) {
       console.error('Delete error:', err);
     }
   };
 
-  // Calculate quick stats
-  const totalVolume = workouts.reduce((sum, w) => sum + (w.sets * w.reps * w.weightKg), 0);
+  // Append one more set to an existing workout record
+  const handleAddSetToWorkout = async (workout) => {
+    const lastSet = workout.sets[workout.sets.length - 1] || { reps: 10, weightKg: 60 };
+    try {
+      const res = await fetch(`${API_BASE}/api/workouts/${workout.id}/sets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reps: lastSet.reps, weightKg: lastSet.weightKg })
+      });
+      if (res.ok) refreshWorkouts();
+    } catch (err) {
+      console.error('Add set error:', err);
+    }
+  };
+
+  const handleDeleteSet = async (workoutId, setId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/workouts/${workoutId}/sets/${setId}`, { method: 'DELETE' });
+      if (res.ok) refreshWorkouts();
+    } catch (err) {
+      console.error('Delete set error:', err);
+    }
+  };
+
+  // Calculate quick stats from the nested sets of every workout
+  const totalLoggedSets = workouts.reduce((acc, w) => acc + (w.sets?.length || 0), 0);
+  const totalVolume = workouts.reduce(
+    (sum, w) => sum + (w.sets || []).reduce((s, set) => s + set.reps * set.weightKg, 0),
+    0
+  );
+
+  // Workouts for the date chosen on the "By Date" tab (fetched server-side via ?date=)
+  const workoutsForSelectedDate = workoutsByDate;
+  const setsForSelectedDate = workoutsForSelectedDate.reduce((acc, w) => acc + (w.sets?.length || 0), 0);
+  const volumeForSelectedDate = workoutsForSelectedDate.reduce(
+    (sum, w) => sum + (w.sets || []).reduce((s, set) => s + set.reps * set.weightKg, 0),
+    0
+  );
 
   return (
     <div style={{ maxWidth: 840, margin: '0 auto', padding: '16px 20px', minHeight: '100vh' }}>
@@ -145,6 +233,25 @@ export default function App() {
             gap: 6
           }}>
           <Dumbbell size={16} /> My Workouts
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('byDate')}
+          style={{
+            flex: 1,
+            padding: '10px 14px',
+            borderRadius: 8,
+            border: 'none',
+            background: activeTab === 'byDate' ? '#0284c7' : '#1e293b',
+            color: '#fff',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6
+          }}>
+          <CalendarDays size={16} /> By Date
         </button>
 
         <button 
@@ -213,7 +320,7 @@ export default function App() {
             <div style={{ background: '#1e293b', padding: 14, borderRadius: 10, border: '1px solid #334155' }}>
               <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Total Logged Sets</div>
               <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4 }}>
-                {workouts.reduce((acc, curr) => acc + curr.sets, 0)}
+                {totalLoggedSets}
               </div>
             </div>
             <div style={{ background: '#1e293b', padding: 14, borderRadius: 10, border: '1px solid #334155' }}>
@@ -269,38 +376,47 @@ export default function App() {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
-              <div>
-                <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: 4 }}>Sets</label>
-                <input 
-                  type="number"
-                  min="1"
-                  value={formData.sets}
-                  onChange={(e) => setFormData({ ...formData, sets: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}
-                />
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <label style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Sets (reps × weight per set)</label>
+                <button
+                  type="button"
+                  onClick={addSetRow}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'transparent', border: '1px solid #475569', color: '#38bdf8', borderRadius: 6, padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                  <Plus size={12} /> Add Set
+                </button>
               </div>
 
-              <div>
-                <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: 4 }}>Reps / Set</label>
-                <input 
-                  type="number"
-                  min="1"
-                  value={formData.reps}
-                  onChange={(e) => setFormData({ ...formData, reps: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: 4 }}>Weight (kg)</label>
-                <input 
-                  type="number"
-                  step="0.5"
-                  value={formData.weightKg}
-                  onChange={(e) => setFormData({ ...formData, weightKg: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}
-                />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {formData.sets.map((s, idx) => (
+                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 28px', gap: 8, alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center' }}>#{idx + 1}</span>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Reps"
+                      value={s.reps}
+                      onChange={(e) => updateSetRow(idx, 'reps', e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}
+                    />
+                    <input
+                      type="number"
+                      step="0.5"
+                      placeholder="Weight (kg)"
+                      value={s.weightKg}
+                      onChange={(e) => updateSetRow(idx, 'weightKg', e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeSetRow(idx)}
+                      disabled={formData.sets.length === 1}
+                      title="Remove set"
+                      style={{ background: 'transparent', border: 'none', color: formData.sets.length === 1 ? '#475569' : '#f87171', cursor: formData.sets.length === 1 ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center' }}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -338,7 +454,106 @@ export default function App() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {workouts.map((w) => (
-                  <div key={w.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '12px 16px', borderRadius: 10, border: '1px solid #334155' }}>
+                  <div key={w.id} style={{ background: '#1e293b', padding: '12px 16px', borderRadius: 10, border: '1px solid #334155' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', background: '#0369a1', color: '#e0f2fe', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            {w.muscleGroup}
+                          </span>
+                          <strong style={{ fontSize: '1rem', color: '#f8fafc' }}>{w.exercise}</strong>
+                        </div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 4 }}>
+                        {w.sets?.length || 0} sets &nbsp;·&nbsp; {w.date} ({getWeekdayName(w.date)})
+                      </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          onClick={() => handleAddSetToWorkout(w)}
+                          title="Add another set"
+                          style={{ background: '#0369a1', border: 'none', borderRadius: 6, color: '#e0f2fe', padding: '8px', cursor: 'pointer', display: 'flex' }}>
+                          <Plus size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(w.id)}
+                          style={{ background: '#7f1d1d', border: 'none', borderRadius: 6, color: '#fca5a5', padding: '8px', cursor: 'pointer', display: 'flex' }}
+                          title="Delete workout">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Per-set breakdown */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                      {(w.sets || []).map((s) => (
+                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0f172a', border: '1px solid #334155', borderRadius: 6, padding: '4px 8px', fontSize: '0.8rem' }}>
+                          <span style={{ color: '#64748b' }}>#{s.setNumber}</span>
+                          <span style={{ color: '#f8fafc' }}>{s.reps} reps</span>
+                          <span style={{ color: '#38bdf8', fontWeight: 600 }}>@ {s.weightKg} kg</span>
+                          <button
+                            onClick={() => handleDeleteSet(w.id, s.id)}
+                            title="Remove this set"
+                            style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 1b: WORKOUT RECORDS BY DATE */}
+      {activeTab === 'byDate' && (
+        <div>
+          <div style={{ background: '#1e293b', padding: 18, borderRadius: 12, border: '1px solid #334155', marginBottom: 20 }}>
+            <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: 6 }}>Choose a date</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff', fontSize: '0.95rem' }}
+            />
+            <div style={{ fontSize: '0.8rem', color: '#38bdf8', marginTop: 8 }}>
+              {getWeekdayName(selectedDate)}
+            </div>
+          </div>
+
+          {/* Quick Metrics Bar for the selected date */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+            <div style={{ background: '#1e293b', padding: 14, borderRadius: 10, border: '1px solid #334155' }}>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Exercises Logged</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4 }}>
+                {workoutsForSelectedDate.length}
+              </div>
+            </div>
+            <div style={{ background: '#1e293b', padding: 14, borderRadius: 10, border: '1px solid #334155' }}>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Sets Logged</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4 }}>
+                {setsForSelectedDate}
+              </div>
+            </div>
+            <div style={{ background: '#1e293b', padding: 14, borderRadius: 10, border: '1px solid #334155' }}>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Tonnage Moved</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4, color: '#38bdf8' }}>
+                {(volumeForSelectedDate / 1000).toFixed(1)} <span style={{ fontSize: '0.9rem' }}>tonnes</span>
+              </div>
+            </div>
+          </div>
+
+          {workoutsForSelectedDate.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 30, background: '#1e293b', borderRadius: 10, color: '#94a3b8' }}>
+              No workouts logged on {selectedDate} ({getWeekdayName(selectedDate)}).
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {workoutsForSelectedDate.map((w) => (
+                <div key={w.id} style={{ background: '#1e293b', padding: '12px 16px', borderRadius: 10, border: '1px solid #334155' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', background: '#0369a1', color: '#e0f2fe', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
@@ -346,21 +561,37 @@ export default function App() {
                         </span>
                         <strong style={{ fontSize: '1rem', color: '#f8fafc' }}>{w.exercise}</strong>
                       </div>
-                      <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: 4 }}>
-                        {w.sets} sets × {w.reps} reps @ <strong style={{ color: '#38bdf8' }}>{w.weightKg} kg</strong> &nbsp;·&nbsp; {w.date}
+                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 4 }}>
+                        {w.sets?.length || 0} sets &nbsp;·&nbsp; {w.date} ({getWeekdayName(w.date)})
                       </div>
+                      {w.notes && (
+                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: 4, fontStyle: 'italic' }}>
+                          "{w.notes}"
+                        </div>
+                      )}
                     </div>
-                    <button 
+                    <button
                       onClick={() => handleDelete(w.id)}
-                      style={{ background: '#7f1d1d', border: 'none', borderRadius: 6, color: '#fca5a5', padding: '8px', cursor: 'pointer' }}
-                      title="Delete">
+                      style={{ background: '#7f1d1d', border: 'none', borderRadius: 6, color: '#fca5a5', padding: '8px', cursor: 'pointer', display: 'flex' }}
+                      title="Delete workout">
                       <Trash2 size={16} />
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+
+                  {/* Per-set breakdown */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                    {(w.sets || []).map((s) => (
+                      <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0f172a', border: '1px solid #334155', borderRadius: 6, padding: '4px 8px', fontSize: '0.8rem' }}>
+                        <span style={{ color: '#64748b' }}>#{s.setNumber}</span>
+                        <span style={{ color: '#f8fafc' }}>{s.reps} reps</span>
+                        <span style={{ color: '#38bdf8', fontWeight: 600 }}>@ {s.weightKg} kg</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

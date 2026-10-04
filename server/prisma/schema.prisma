@@ -8,13 +8,21 @@ generator client {
 }
 
 model Workout {
-  id          String   @id @default(uuid())
+  id          String      @id @default(uuid())
   date        String
   muscleGroup String
   exercise    String
-  sets        Int
-  reps        Int
-  weightKg    Float
   notes       String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime    @default(now())
+  sets        WorkoutSet[]
+}
+
+model WorkoutSet {
+  id        String   @id @default(uuid())
+  setNumber Int
+  reps      Int
+  weightKg  Float
+  workoutId String
+  workout   Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
