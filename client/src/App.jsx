@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Dumbbell, PlusCircle, Trash2, RefreshCw, BarChart2, ShieldCheck, Zap } from 'lucide-react';
+import { Activity, Dumbbell, PlusCircle, Trash2, RefreshCw, BarChart2, ShieldCheck, Zap, Map } from 'lucide-react';
+import LiveTrafficMap from './LiveTrafficMap.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://gymtrack-prdf.onrender.com';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('workouts'); // 'workouts' | 'traffic' | 'health'
+  const [activeTab, setActiveTab] = useState('workouts'); // 'workouts' | 'traffic' | 'health' | 'map'
   const [workouts, setWorkouts] = useState([]);
   const [trafficLogs, setTrafficLogs] = useState([]);
   const [healthData, setHealthData] = useState(null);
@@ -182,6 +183,25 @@ export default function App() {
             gap: 6
           }}>
           <ShieldCheck size={16} /> Server Health
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('map')}
+          style={{
+            flex: 1,
+            padding: '10px 14px',
+            borderRadius: 8,
+            border: 'none',
+            background: activeTab === 'map' ? '#7c3aed' : '#1e293b',
+            color: '#fff',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6
+          }}>
+          <Map size={16} /> Request Map
         </button>
       </div>
 
@@ -448,6 +468,20 @@ export default function App() {
           ) : (
             <div>Loading diagnostics...</div>
           )}
+        </div>
+      )}
+      {/* TAB 4: REQUEST LIFECYCLE MAP */}
+      {activeTab === 'map' && (
+        <div>
+          <div style={{ background: '#1e1b4b', padding: 16, borderRadius: 12, border: '1px solid #4c1d95', marginBottom: 16 }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#a78bfa', marginBottom: 6 }}>
+              🗺️ Request Lifecycle Map
+            </h2>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', lineHeight: 1.5 }}>
+              Select any request from the list to see a live step‑by‑step map of everything that happened inside the server — middleware, DB query, CPU &amp; RAM usage at every stage.
+            </p>
+          </div>
+          <LiveTrafficMap />
         </div>
       )}
     </div>

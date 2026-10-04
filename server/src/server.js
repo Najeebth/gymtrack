@@ -2,6 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
+import { requestTracker } from './middleware/tracker.js';
+import traceRoutes from './routes/trace.js';
+import { getCurrentTrace } from './asyncContext.js';
+import { startStep, finishStep } from './requestTracker.js';
 
 dotenv.config();
 
@@ -25,6 +29,8 @@ const requestLogs = [];
 let lastDbQuery = null;
 
 prisma.$on('query', (e) => {
+  // Keep for console logging only — async context is disconnected here
+  // so we cannot reliably call getCurrentTrace() from this event handler.
   lastDbQuery = {
     query: e.query,
     durationMs: e.duration,
@@ -33,7 +39,38 @@ prisma.$on('query', (e) => {
   console.log(`[SQL QUERY] (${e.duration}ms) ${e.query}`);
 });
 
-// --- 1. Traffic Telemetry Middleware ---
+/**
+ * Wraps any Prisma call with request-trace step recording.
+ * Because this runs in the same async context as the route handler,
+ * getCurrentTrace() reliably returns the current request's trace.
+ *
+ * Usage:
+ *   const workouts = await dbTrace('findMany Workout', () => prisma.workout.findMany(...));
+ */
+async function dbTrace(label, queryFn) {
+  const trace = getCurrentTrace();
+  const step = trace ? startStep(trace, `db: ${label}`) : null;
+  try {
+    const result = await queryFn();
+    return result;
+  } finally {
+    if (step) {
+      finishStep(step);
+      // Push updated trace to any live SSE subscriber
+      if (trace.push) trace.push(trace);
+    }
+  }
+}
+
+// --- 1. Middleware ---
+app.use(cors({
+  exposedHeaders: ['X-Trace-Id']  // allow browser to read this custom header
+}));
+app.use(express.json());
+
+// --- 2. Traffic Telemetry Middleware (Legacy & New) ---
+app.use(requestTracker); // New advanced tracker
+
 app.use((req, res, next) => {
   const start = process.hrtime();
   const timestamp = new Date().toISOString();
@@ -44,7 +81,7 @@ app.use((req, res, next) => {
     const durationMs = parseFloat(((diff[0] * 1e9 + diff[1]) / 1e6).toFixed(2));
 
     const logEntry = {
-      id: 'req_' + Date.now() + Math.random().toString(36).substring(2, 5),
+      id: req.traceId || ('req_' + Date.now() + Math.random().toString(36).substring(2, 5)),
       timestamp,
       method: req.method,
       url: req.originalUrl,
@@ -65,18 +102,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// --- 2. Middleware ---
-app.use(cors());
-app.use(express.json());
-
 // --- 3. Endpoints ---
+app.use('/api/traces', traceRoutes);
+
 
 // Health & System Telemetry Endpoint
 app.get('/api/health', async (req, res) => {
   let dbStatus = 'disconnected';
   try {
-    // Run a quick raw SQL check to verify Postgres connection
-    await prisma.$queryRaw`SELECT 1`;
+    await dbTrace('SELECT 1 (health check)', () => prisma.$queryRaw`SELECT 1`);
     dbStatus = 'connected (PostgreSQL)';
   } catch (err) {
     dbStatus = `error: ${err.message}`;
@@ -107,9 +141,9 @@ app.get('/api/traffic', (req, res) => {
 // GET all workouts from PostgreSQL
 app.get('/api/workouts', async (req, res) => {
   try {
-    const workouts = await prisma.workout.findMany({
-      orderBy: { createdAt: 'desc' }
-    });
+    const workouts = await dbTrace('findMany Workout (ordered by createdAt desc)', () =>
+      prisma.workout.findMany({ orderBy: { createdAt: 'desc' } })
+    );
     res.json(workouts);
   } catch (err) {
     console.error('Error fetching workouts from Postgres:', err);
@@ -126,18 +160,19 @@ app.post('/api/workouts', async (req, res) => {
   }
 
   try {
-    const workout = await prisma.workout.create({
-      data: {
-        date: date || new Date().toISOString().split('T')[0],
-        muscleGroup: muscleGroup || 'General',
-        exercise: exercise.trim(),
-        sets: Number(sets),
-        reps: Number(reps),
-        weightKg: Number(weightKg),
-        notes: notes || ''
-      }
-    });
-
+    const workout = await dbTrace('create Workout', () =>
+      prisma.workout.create({
+        data: {
+          date: date || new Date().toISOString().split('T')[0],
+          muscleGroup: muscleGroup || 'General',
+          exercise: exercise.trim(),
+          sets: Number(sets),
+          reps: Number(reps),
+          weightKg: Number(weightKg),
+          notes: notes || ''
+        }
+      })
+    );
     res.status(201).json(workout);
   } catch (err) {
     console.error('Error creating workout in Postgres:', err);
@@ -150,9 +185,9 @@ app.delete('/api/workouts/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    await prisma.workout.delete({
-      where: { id }
-    });
+    await dbTrace(`delete Workout id:${id}`, () =>
+      prisma.workout.delete({ where: { id } })
+    );
     res.json({ success: true, message: `Workout ${id} deleted` });
   } catch (err) {
     console.error('Error deleting workout in Postgres:', err);
