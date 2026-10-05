@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Dumbbell, PlusCircle, Trash2, RefreshCw, BarChart2, ShieldCheck, Zap, Map, Plus, X, CalendarDays, Pencil, Check } from 'lucide-react';
 import LiveTrafficMap from './LiveTrafficMap.jsx';
+import { addPendingWorkout, getAllPending, removePending, countPending } from './offlineStore.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://gymtrack-prdf.onrender.com';
 
@@ -131,6 +132,11 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [workoutsByDate, setWorkoutsByDate] = useState([]);
 
+  // Offline-first state: whether the browser currently has connectivity, and
+  // how many workouts are queued locally in IndexedDB waiting to sync.
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pendingCount, setPendingCount] = useState(0);
+
   // Inline-edit state: which workout is being edited (one "Edit" button per record),
   // and its full draft — workout fields plus every set (editable, addable, removable).
   const [editingWorkoutId, setEditingWorkoutId] = useState(null);
@@ -235,22 +241,77 @@ export default function App() {
     }
   }, [selectedDate]);
 
+  // Push any workouts queued in IndexedDB (logged while offline) to the server.
+  // Called on reconnect ('online' event) and once on app load in case there
+  // were leftovers from a previous offline session.
+  const syncPendingWorkouts = async () => {
+    const pending = await getAllPending();
+    if (pending.length === 0) return;
+
+    for (const item of pending) {
+      try {
+        const res = await fetch(`${API_BASE}/api/workouts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item.payload)
+        });
+        if (res.ok) {
+          await removePending(item.localId);
+        }
+      } catch (err) {
+        // Still offline or server unreachable — stop and retry on next trigger.
+        console.error('Sync error, will retry later:', err);
+        break;
+      }
+    }
+    setPendingCount(await countPending());
+    refreshWorkouts();
+  };
+
+  // Track connectivity and sync queued workouts whenever we come back online.
+  useEffect(() => {
+    countPending().then(setPendingCount);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncPendingWorkouts();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Catch any workouts left queued from a previous offline session.
+    if (navigator.onLine) syncPendingWorkouts();
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.exercise.trim()) return;
+
+    const payload = { ...formData };
 
     try {
       const res = await fetch(`${API_BASE}/api/workouts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         setFormData({ ...formData, exercise: '', notes: '', sets: [{ reps: 10, weightKg: 60 }] });
         refreshWorkouts();
       }
     } catch (err) {
-      console.error('Submit error:', err);
+      // Network unavailable (offline) — queue it locally and sync later.
+      console.warn('Offline: queuing workout to sync later.', err);
+      await addPendingWorkout(payload);
+      setPendingCount(await countPending());
+      setFormData({ ...formData, exercise: '', notes: '', sets: [{ reps: 10, weightKg: 60 }] });
     }
   };
 
@@ -385,12 +446,27 @@ export default function App() {
           <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Personal Gym Progress & Request Traffic Inspector</p>
         </div>
 
-        {/* Latency Pill */}
-        {lastApiLatency && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1e293b', border: '1px solid #334155', borderRadius: 999, padding: '4px 12px', fontSize: '0.75rem', color: '#38bdf8' }}>
-            <Zap size={14} /> Roundtrip: {lastApiLatency} ms
-          </div>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          {/* Offline / sync-pending indicator */}
+          {(!isOnline || pendingCount > 0) && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: isOnline ? '#1e293b' : '#7c2d12',
+              border: `1px solid ${isOnline ? '#334155' : '#f97316'}`,
+              borderRadius: 999, padding: '4px 12px', fontSize: '0.75rem',
+              color: isOnline ? '#fbbf24' : '#fed7aa'
+            }}>
+              {isOnline ? `Syncing ${pendingCount} offline workout${pendingCount === 1 ? '' : 's'}...` : `Offline${pendingCount > 0 ? ` — ${pendingCount} queued` : ''}`}
+            </div>
+          )}
+
+          {/* Latency Pill */}
+          {lastApiLatency && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1e293b', border: '1px solid #334155', borderRadius: 999, padding: '4px 12px', fontSize: '0.75rem', color: '#38bdf8' }}>
+              <Zap size={14} /> Roundtrip: {lastApiLatency} ms
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Navigation Tabs */}
