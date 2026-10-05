@@ -203,6 +203,64 @@ app.post('/api/workouts', async (req, res) => {
   }
 });
 
+// PUT update a workout's own fields (date, muscleGroup, exercise, notes)
+app.put('/api/workouts/:id', async (req, res) => {
+  const { id } = req.params;
+  const { date, muscleGroup, exercise, notes } = req.body;
+
+  if (exercise !== undefined && !String(exercise).trim()) {
+    return res.status(400).json({ error: 'Exercise name cannot be empty.' });
+  }
+
+  try {
+    const data = {};
+    if (date !== undefined) data.date = date;
+    if (muscleGroup !== undefined) data.muscleGroup = muscleGroup;
+    if (exercise !== undefined) data.exercise = exercise.trim();
+    if (notes !== undefined) data.notes = notes;
+
+    const updated = await dbTrace(`update Workout id:${id}`, () =>
+      prisma.workout.update({
+        where: { id },
+        data,
+        include: { sets: { orderBy: { setNumber: 'asc' } } }
+      })
+    );
+    res.json(updated);
+  } catch (err) {
+    console.error('Error updating workout in Postgres:', err);
+    res.status(404).json({ error: 'Workout not found' });
+  }
+});
+
+// PUT update a single set's reps/weightKg
+app.put('/api/workouts/:id/sets/:setId', async (req, res) => {
+  const { id, setId } = req.params;
+  const { reps, weightKg } = req.body;
+
+  const numReps = Number(reps);
+  const numWeight = Number(weightKg);
+  if (Number.isNaN(numReps) || Number.isNaN(numWeight)) {
+    return res.status(400).json({ error: 'Valid numeric reps and weightKg are required.' });
+  }
+
+  try {
+    await dbTrace(`update WorkoutSet id:${setId}`, () =>
+      prisma.workoutSet.update({
+        where: { id: setId },
+        data: { reps: numReps, weightKg: numWeight }
+      })
+    );
+    const updated = await dbTrace(`findUnique Workout id:${id} (after set update)`, () =>
+      prisma.workout.findUnique({ where: { id }, include: { sets: { orderBy: { setNumber: 'asc' } } } })
+    );
+    res.json(updated);
+  } catch (err) {
+    console.error('Error updating set in Postgres:', err);
+    res.status(404).json({ error: 'Set not found' });
+  }
+});
+
 // POST additional set(s) onto an existing workout
 app.post('/api/workouts/:id/sets', async (req, res) => {
   const { id } = req.params;

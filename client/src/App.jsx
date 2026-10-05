@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Dumbbell, PlusCircle, Trash2, RefreshCw, BarChart2, ShieldCheck, Zap, Map, Plus, X, CalendarDays } from 'lucide-react';
+import { Activity, Dumbbell, PlusCircle, Trash2, RefreshCw, BarChart2, ShieldCheck, Zap, Map, Plus, X, CalendarDays, Pencil, Check } from 'lucide-react';
 import LiveTrafficMap from './LiveTrafficMap.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://gymtrack-prdf.onrender.com';
@@ -12,6 +12,115 @@ function getWeekdayName(dateStr) {
   return d.toLocaleDateString('en-US', { weekday: 'long' });
 }
 
+// A single consolidated edit form for a workout record: date, muscle group,
+// exercise, notes, and every set (editable, addable, removable) — all behind
+// one "Edit" button and one "Save" action, instead of separate per-field controls.
+function EditWorkoutForm({ editDraft, setEditDraft, addEditSetRow, removeEditSetRow, updateEditSetRow, onSave, onCancel }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div>
+          <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: 4 }}>Date</label>
+          <input
+            type="date"
+            value={editDraft.date}
+            onChange={(e) => setEditDraft({ ...editDraft, date: e.target.value })}
+            style={{ width: '100%', padding: '6px 8px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: 4 }}>Muscle Group</label>
+          <select
+            value={editDraft.muscleGroup}
+            onChange={(e) => setEditDraft({ ...editDraft, muscleGroup: e.target.value })}
+            style={{ width: '100%', padding: '6px 8px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}>
+            <option value="Chest">Chest</option>
+            <option value="Back">Back</option>
+            <option value="Legs">Legs</option>
+            <option value="Shoulders">Shoulders</option>
+            <option value="Arms">Arms</option>
+            <option value="Core">Core</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: 4 }}>Exercise Name</label>
+        <input
+          type="text"
+          value={editDraft.exercise}
+          onChange={(e) => setEditDraft({ ...editDraft, exercise: e.target.value })}
+          placeholder="Exercise name"
+          style={{ width: '100%', padding: '6px 8px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}
+        />
+      </div>
+
+      <div>
+        <label style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'block', marginBottom: 4 }}>Notes</label>
+        <input
+          type="text"
+          value={editDraft.notes}
+          onChange={(e) => setEditDraft({ ...editDraft, notes: e.target.value })}
+          placeholder="Notes"
+          style={{ width: '100%', padding: '6px 8px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}
+        />
+      </div>
+
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <label style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Sets (reps × weight per set)</label>
+          <button
+            type="button"
+            onClick={addEditSetRow}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'transparent', border: '1px solid #475569', color: '#38bdf8', borderRadius: 6, padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer' }}>
+            <Plus size={12} /> Add Set
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {editDraft.sets.map((s, idx) => (
+            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 28px', gap: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center' }}>#{idx + 1}</span>
+              <input
+                type="number"
+                min="1"
+                placeholder="Reps"
+                value={s.reps}
+                onChange={(e) => updateEditSetRow(idx, 'reps', e.target.value)}
+                style={{ width: '100%', padding: '6px 8px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}
+              />
+              <input
+                type="number"
+                step="0.5"
+                placeholder="Weight (kg)"
+                value={s.weightKg}
+                onChange={(e) => updateEditSetRow(idx, 'weightKg', e.target.value)}
+                style={{ width: '100%', padding: '6px 8px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}
+              />
+              <button
+                type="button"
+                onClick={() => removeEditSetRow(idx)}
+                disabled={editDraft.sets.length === 1}
+                title="Remove set"
+                style={{ background: 'transparent', border: 'none', color: editDraft.sets.length === 1 ? '#475569' : '#f87171', cursor: editDraft.sets.length === 1 ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'center' }}>
+                <X size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+        <button onClick={onSave} style={{ background: '#0369a1', border: 'none', borderRadius: 6, color: '#e0f2fe', padding: '8px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}>
+          <Check size={14} /> Save Record
+        </button>
+        <button onClick={onCancel} style={{ background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#94a3b8', padding: '8px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <X size={14} /> Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('workouts'); // 'workouts' | 'byDate' | 'traffic' | 'health' | 'map'
   const [workouts, setWorkouts] = useState([]);
@@ -21,6 +130,11 @@ export default function App() {
   const [lastApiLatency, setLastApiLatency] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [workoutsByDate, setWorkoutsByDate] = useState([]);
+
+  // Inline-edit state: which workout is being edited (one "Edit" button per record),
+  // and its full draft — workout fields plus every set (editable, addable, removable).
+  const [editingWorkoutId, setEditingWorkoutId] = useState(null);
+  const [editDraft, setEditDraft] = useState({ date: '', muscleGroup: '', exercise: '', notes: '', sets: [] });
 
   // Form State — now holds an array of individual sets (reps + weight each)
   const [formData, setFormData] = useState({
@@ -155,27 +269,92 @@ export default function App() {
     }
   };
 
-  // Append one more set to an existing workout record
-  const handleAddSetToWorkout = async (workout) => {
-    const lastSet = workout.sets[workout.sets.length - 1] || { reps: 10, weightKg: 60 };
-    try {
-      const res = await fetch(`${API_BASE}/api/workouts/${workout.id}/sets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reps: lastSet.reps, weightKg: lastSet.weightKg })
-      });
-      if (res.ok) refreshWorkouts();
-    } catch (err) {
-      console.error('Add set error:', err);
-    }
+  // Begin editing a workout — a single "Edit" button opens the full record:
+  // date, muscle group, exercise, notes, AND every set (editable/addable/removable).
+  const startEditWorkout = (w) => {
+    setEditingWorkoutId(w.id);
+    setEditDraft({
+      date: w.date,
+      muscleGroup: w.muscleGroup,
+      exercise: w.exercise,
+      notes: w.notes || '',
+      sets: (w.sets || []).map((s) => ({ id: s.id, reps: s.reps, weightKg: s.weightKg }))
+    });
   };
 
-  const handleDeleteSet = async (workoutId, setId) => {
+  const cancelEditWorkout = () => {
+    setEditingWorkoutId(null);
+  };
+
+  const addEditSetRow = () => {
+    setEditDraft((prev) => {
+      const last = prev.sets[prev.sets.length - 1] || { reps: 10, weightKg: 60 };
+      return { ...prev, sets: [...prev.sets, { reps: last.reps, weightKg: last.weightKg }] };
+    });
+  };
+
+  const removeEditSetRow = (index) => {
+    setEditDraft((prev) => ({
+      ...prev,
+      sets: prev.sets.length > 1 ? prev.sets.filter((_, i) => i !== index) : prev.sets
+    }));
+  };
+
+  const updateEditSetRow = (index, field, value) => {
+    setEditDraft((prev) => ({
+      ...prev,
+      sets: prev.sets.map((s, i) => (i === index ? { ...s, [field]: value } : s))
+    }));
+  };
+
+  // Saves the entire record in one go: workout fields + set changes
+  // (updates existing sets, creates new ones, deletes removed ones).
+  const saveEditWorkout = async (workout) => {
+    if (!editDraft.exercise.trim() || editDraft.sets.length === 0) return;
     try {
-      const res = await fetch(`${API_BASE}/api/workouts/${workoutId}/sets/${setId}`, { method: 'DELETE' });
-      if (res.ok) refreshWorkouts();
+      // 1. Update the workout's own fields
+      await fetch(`${API_BASE}/api/workouts/${workout.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: editDraft.date,
+          muscleGroup: editDraft.muscleGroup,
+          exercise: editDraft.exercise,
+          notes: editDraft.notes
+        })
+      });
+
+      // 2. Delete sets that were removed in the editor
+      const originalIds = (workout.sets || []).map((s) => s.id);
+      const keptIds = editDraft.sets.filter((s) => s.id).map((s) => s.id);
+      const removedIds = originalIds.filter((id) => !keptIds.includes(id));
+      await Promise.all(
+        removedIds.map((setId) =>
+          fetch(`${API_BASE}/api/workouts/${workout.id}/sets/${setId}`, { method: 'DELETE' })
+        )
+      );
+
+      // 3. Update existing sets, create any new ones added in the editor
+      await Promise.all(
+        editDraft.sets.map((s) =>
+          s.id
+            ? fetch(`${API_BASE}/api/workouts/${workout.id}/sets/${s.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reps: s.reps, weightKg: s.weightKg })
+              })
+            : fetch(`${API_BASE}/api/workouts/${workout.id}/sets`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reps: s.reps, weightKg: s.weightKg })
+              })
+        )
+      );
+
+      setEditingWorkoutId(null);
+      refreshWorkouts();
     } catch (err) {
-      console.error('Delete set error:', err);
+      console.error('Update workout error:', err);
     }
   };
 
@@ -453,8 +632,22 @@ export default function App() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {workouts.map((w) => (
-                  <div key={w.id} style={{ background: '#1e293b', padding: '12px 16px', borderRadius: 10, border: '1px solid #334155' }}>
+                {workouts.map((w) => {
+                  const isEditing = editingWorkoutId === w.id;
+                  return (
+                  <div key={w.id} style={{ background: '#1e293b', padding: '12px 16px', borderRadius: 10, border: isEditing ? '1px solid #38bdf8' : '1px solid #334155' }}>
+                    {isEditing ? (
+                      <EditWorkoutForm
+                        editDraft={editDraft}
+                        setEditDraft={setEditDraft}
+                        addEditSetRow={addEditSetRow}
+                        removeEditSetRow={removeEditSetRow}
+                        updateEditSetRow={updateEditSetRow}
+                        onSave={() => saveEditWorkout(w)}
+                        onCancel={cancelEditWorkout}
+                      />
+                    ) : (
+                    <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -466,13 +659,18 @@ export default function App() {
                       <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 4 }}>
                         {w.sets?.length || 0} sets &nbsp;·&nbsp; {w.date} ({getWeekdayName(w.date)})
                       </div>
+                      {w.notes && (
+                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: 4, fontStyle: 'italic' }}>
+                          "{w.notes}"
+                        </div>
+                      )}
                       </div>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
-                          onClick={() => handleAddSetToWorkout(w)}
-                          title="Add another set"
-                          style={{ background: '#0369a1', border: 'none', borderRadius: 6, color: '#e0f2fe', padding: '8px', cursor: 'pointer', display: 'flex' }}>
-                          <Plus size={16} />
+                          onClick={() => startEditWorkout(w)}
+                          title="Edit record"
+                          style={{ background: '#334155', border: 'none', borderRadius: 6, color: '#cbd5e1', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', fontWeight: 600 }}>
+                          <Pencil size={14} /> Edit
                         </button>
                         <button 
                           onClick={() => handleDelete(w.id)}
@@ -483,24 +681,21 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Per-set breakdown */}
+                    {/* Per-set breakdown (read-only — use Edit to change) */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                       {(w.sets || []).map((s) => (
                         <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0f172a', border: '1px solid #334155', borderRadius: 6, padding: '4px 8px', fontSize: '0.8rem' }}>
                           <span style={{ color: '#64748b' }}>#{s.setNumber}</span>
                           <span style={{ color: '#f8fafc' }}>{s.reps} reps</span>
                           <span style={{ color: '#38bdf8', fontWeight: 600 }}>@ {s.weightKg} kg</span>
-                          <button
-                            onClick={() => handleDeleteSet(w.id, s.id)}
-                            title="Remove this set"
-                            style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', display: 'flex', padding: 0 }}>
-                            <X size={12} />
-                          </button>
                         </div>
                       ))}
                     </div>
+                    </>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -551,8 +746,22 @@ export default function App() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {workoutsForSelectedDate.map((w) => (
-                <div key={w.id} style={{ background: '#1e293b', padding: '12px 16px', borderRadius: 10, border: '1px solid #334155' }}>
+              {workoutsForSelectedDate.map((w) => {
+                const isEditing = editingWorkoutId === w.id;
+                return (
+                <div key={w.id} style={{ background: '#1e293b', padding: '12px 16px', borderRadius: 10, border: isEditing ? '1px solid #38bdf8' : '1px solid #334155' }}>
+                  {isEditing ? (
+                    <EditWorkoutForm
+                      editDraft={editDraft}
+                      setEditDraft={setEditDraft}
+                      addEditSetRow={addEditSetRow}
+                      removeEditSetRow={removeEditSetRow}
+                      updateEditSetRow={updateEditSetRow}
+                      onSave={() => saveEditWorkout(w)}
+                      onCancel={cancelEditWorkout}
+                    />
+                  ) : (
+                  <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -570,15 +779,23 @@ export default function App() {
                         </div>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleDelete(w.id)}
-                      style={{ background: '#7f1d1d', border: 'none', borderRadius: 6, color: '#fca5a5', padding: '8px', cursor: 'pointer', display: 'flex' }}
-                      title="Delete workout">
-                      <Trash2 size={16} />
-                    </button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => startEditWorkout(w)}
+                        title="Edit record"
+                        style={{ background: '#334155', border: 'none', borderRadius: 6, color: '#cbd5e1', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', fontWeight: 600 }}>
+                        <Pencil size={14} /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(w.id)}
+                        style={{ background: '#7f1d1d', border: 'none', borderRadius: 6, color: '#fca5a5', padding: '8px', cursor: 'pointer', display: 'flex' }}
+                        title="Delete workout">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Per-set breakdown */}
+                  {/* Per-set breakdown (read-only — use Edit to change) */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                     {(w.sets || []).map((s) => (
                       <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#0f172a', border: '1px solid #334155', borderRadius: 6, padding: '4px 8px', fontSize: '0.8rem' }}>
@@ -588,8 +805,11 @@ export default function App() {
                       </div>
                     ))}
                   </div>
+                  </>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
