@@ -73,7 +73,7 @@ function EditWorkoutForm({ editDraft, setEditDraft, addEditSetRow, removeEditSet
           <button
             type="button"
             onClick={addEditSetRow}
-            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'transparent', border: '1px solid #475569', color: '#38bdf8', borderRadius: 6, padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'transparent', border: '1px solid #475569', color: '#f97316', borderRadius: 6, padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer' }}>
             <Plus size={12} /> Add Set
           </button>
         </div>
@@ -115,7 +115,7 @@ function EditWorkoutForm({ editDraft, setEditDraft, addEditSetRow, removeEditSet
           onClick={onSave}
           disabled={saveStatus === 'saving'}
           style={{
-            background: saveStatus === 'queued' ? '#7c2d12' : '#0369a1',
+            background: saveStatus === 'queued' ? '#7c2d12' : '#1e293b',
             border: 'none',
             borderRadius: 6,
             color: saveStatus === 'queued' ? '#fed7aa' : '#e0f2fe',
@@ -210,7 +210,7 @@ function ProgressChart({ workouts }) {
             onClick={() => setMetric('maxWeight')}
             style={{
               padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
-              background: metric === 'maxWeight' ? '#0284c7' : '#e2e8f0', color: '#1e293b'
+              background: metric === 'maxWeight' ? '#f97316' : '#e2e8f0', color: metric === 'maxWeight' ? '#ffffff' : '#1e293b'
             }}>
             Top Set (kg)
           </button>
@@ -218,7 +218,7 @@ function ProgressChart({ workouts }) {
             onClick={() => setMetric('volume')}
             style={{
               padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
-              background: metric === 'volume' ? '#0284c7' : '#e2e8f0', color: '#1e293b'
+              background: metric === 'volume' ? '#f97316' : '#e2e8f0', color: metric === 'volume' ? '#ffffff' : '#1e293b'
             }}>
             Session Volume (kg)
           </button>
@@ -239,11 +239,11 @@ function ProgressChart({ workouts }) {
             />
           ))}
 
-          {points.length > 1 && <path d={pathD} fill="none" stroke="#38bdf8" strokeWidth="2.5" />}
+          {points.length > 1 && <path d={pathD} fill="none" stroke="#f97316" strokeWidth="2.5" />}
 
           {points.map((p, i) => (
             <g key={i}>
-              <circle cx={p.x} cy={p.y} r="4" fill="#0ea5e9" stroke="#f8fafc" strokeWidth="1.5" />
+              <circle cx={p.x} cy={p.y} r="4" fill="#ea580c" stroke="#f8fafc" strokeWidth="1.5" />
               <title>{`${p.date}: ${p[metric]} ${metric === 'maxWeight' ? 'kg top set' : 'kg total volume'}`}</title>
             </g>
           ))}
@@ -675,12 +675,12 @@ export default function App() {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f4f5f7', color: '#ffffff', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f4f5f7', color: '#0f172a', fontFamily: 'Inter, sans-serif' }}>
       {/* Top Bar */}
       <header style={{ height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', backgroundColor: '#ffffff', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#f97316' }}>
           <Dumbbell size={28} />
-          <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#e2e8f0' }}>GymTrack</span>
+          <span style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>GymTrack</span>
         </div>
         
         {/* Search Bar (mock) */}
@@ -703,7 +703,7 @@ export default function App() {
           )}
           {lastApiLatency && (
              <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
-               <Zap size={14} color="#38bdf8" /> {lastApiLatency} ms
+               <Zap size={14} color="#f97316" /> {lastApiLatency} ms
              </div>
           )}
           <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#e2e8f0', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -719,13 +719,13 @@ export default function App() {
             Home
           </div>
           
-          <button onClick={() => setActiveTab('workouts')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'workouts' ? '#eff6ff' : 'transparent', color: activeTab === 'workouts' ? '#2563eb' : '#64748b', fontWeight: activeTab === 'workouts' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
+          <button onClick={() => setActiveTab('workouts')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'workouts' ? '#fff7ed' : 'transparent', color: activeTab === 'workouts' ? '#f97316' : '#64748b', fontWeight: activeTab === 'workouts' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
             <Dumbbell size={18} /> My Workouts
           </button>
-          <button onClick={() => setActiveTab('byDate')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'byDate' ? '#eff6ff' : 'transparent', color: activeTab === 'byDate' ? '#2563eb' : '#64748b', fontWeight: activeTab === 'byDate' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
+          <button onClick={() => setActiveTab('byDate')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'byDate' ? '#fff7ed' : 'transparent', color: activeTab === 'byDate' ? '#f97316' : '#64748b', fontWeight: activeTab === 'byDate' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
             <CalendarDays size={18} /> By Date
           </button>
-          <button onClick={() => setActiveTab('progress')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'progress' ? '#eff6ff' : 'transparent', color: activeTab === 'progress' ? '#2563eb' : '#64748b', fontWeight: activeTab === 'progress' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
+          <button onClick={() => setActiveTab('progress')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'progress' ? '#fff7ed' : 'transparent', color: activeTab === 'progress' ? '#f97316' : '#64748b', fontWeight: activeTab === 'progress' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
             <TrendingUp size={18} /> Progress
           </button>
 
@@ -734,13 +734,13 @@ export default function App() {
               <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', padding: '0 12px', marginTop: '16px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Admin Apps
               </div>
-              <button onClick={() => setActiveTab('traffic')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'traffic' ? '#eff6ff' : 'transparent', color: activeTab === 'traffic' ? '#2563eb' : '#64748b', fontWeight: activeTab === 'traffic' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
+              <button onClick={() => setActiveTab('traffic')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'traffic' ? '#fff7ed' : 'transparent', color: activeTab === 'traffic' ? '#f97316' : '#64748b', fontWeight: activeTab === 'traffic' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
                 <Activity size={18} /> Live Traffic
               </button>
-              <button onClick={() => setActiveTab('health')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'health' ? '#eff6ff' : 'transparent', color: activeTab === 'health' ? '#2563eb' : '#64748b', fontWeight: activeTab === 'health' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
+              <button onClick={() => setActiveTab('health')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'health' ? '#fff7ed' : 'transparent', color: activeTab === 'health' ? '#f97316' : '#64748b', fontWeight: activeTab === 'health' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
                 <ShieldCheck size={18} /> Server Health
               </button>
-              <button onClick={() => setActiveTab('map')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'map' ? '#eff6ff' : 'transparent', color: activeTab === 'map' ? '#2563eb' : '#64748b', fontWeight: activeTab === 'map' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
+              <button onClick={() => setActiveTab('map')} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: '8px', border: 'none', background: activeTab === 'map' ? '#fff7ed' : 'transparent', color: activeTab === 'map' ? '#f97316' : '#64748b', fontWeight: activeTab === 'map' ? 600 : 500, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s' }}>
                 <Map size={18} /> Request Map
               </button>
             </>
@@ -761,7 +761,7 @@ export default function App() {
       {activeTab === 'admin' && (
         <div style={{ maxWidth: 400, margin: '40px auto', background: '#ffffff', padding: 24, borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, color: '#1e293b' }}>
-            <User size={24} color="#38bdf8" /> Admin Panel
+            <User size={24} color="#f97316" /> Admin Panel
           </h2>
           
           {adminToken ? (
@@ -775,7 +775,7 @@ export default function App() {
                   setAdminToken(null);
                   setActiveTab('workouts');
                 }}
-                style={{ width: '100%', padding: '10px', background: '#ef4444', color: '#1e293b', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ width: '100%', padding: '10px', background: '#ef4444', color: '#ffffff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}>
                 Logout
               </button>
             </div>
@@ -828,7 +828,7 @@ export default function App() {
               </div>
               <button 
                 type="submit"
-                style={{ width: '100%', padding: '12px', background: '#0284c7', color: '#1e293b', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
+                style={{ width: '100%', padding: '12px', background: '#f97316', color: '#ffffff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
                 <LogIn size={18} /> Authenticate
               </button>
             </form>
@@ -849,7 +849,7 @@ export default function App() {
             </div>
             <div style={{ background: '#ffffff', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Tonnage Moved</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4, color: '#38bdf8' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4, color: '#f97316' }}>
                 {(totalVolume / 1000).toFixed(1)} <span style={{ fontSize: '0.9rem' }}>tonnes</span>
               </div>
             </div>
@@ -858,7 +858,7 @@ export default function App() {
           {/* Log New Workout Form */}
           <form onSubmit={handleSubmit} style={{ background: '#ffffff', padding: 18, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 24 }}>
             <h2 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <PlusCircle size={18} color="#38bdf8" /> Log Session Exercise
+              <PlusCircle size={18} color="#f97316" /> Log Session Exercise
             </h2>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
@@ -906,7 +906,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={addSetRow}
-                  style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'transparent', border: '1px solid #475569', color: '#38bdf8', borderRadius: 6, padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'transparent', border: '1px solid #475569', color: '#f97316', borderRadius: 6, padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer' }}>
                   <Plus size={12} /> Add Set
                 </button>
               </div>
@@ -951,7 +951,7 @@ export default function App() {
                 width: '100%',
                 padding: '10px',
                 borderRadius: 8,
-                background: submitStatus === 'queued' ? '#7c2d12' : '#0284c7',
+                background: submitStatus === 'queued' ? '#7c2d12' : '#0f172a',
                 border: 'none',
                 color: submitStatus === 'queued' ? '#fed7aa' : '#fff',
                 fontWeight: 600,
@@ -986,7 +986,7 @@ export default function App() {
                 {workouts.map((w) => {
                   const isEditing = editingWorkoutId === w.id;
                   return (
-                  <div key={w.id} style={{ background: '#ffffff', padding: '12px 16px', borderRadius: 10, border: isEditing ? '1px solid #38bdf8' : '1px solid #e2e8f0' }}>
+                  <div key={w.id} style={{ background: '#ffffff', padding: '12px 16px', borderRadius: 10, border: isEditing ? '1px solid #f97316' : '1px solid #e2e8f0' }}>
                     {isEditing ? (
                       <EditWorkoutForm
                         editDraft={editDraft}
@@ -1003,10 +1003,10 @@ export default function App() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', background: '#0369a1', color: '#e0f2fe', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                          <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', background: '#1e293b', color: '#e0f2fe', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
                             {w.muscleGroup}
                           </span>
-                          <strong style={{ fontSize: '1rem', color: '#f8fafc' }}>{w.exercise}</strong>
+                          <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{w.exercise}</strong>
                         </div>
                       <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 4 }}>
                         {w.sets?.length || 0} sets &nbsp;·&nbsp; {w.date} ({getWeekdayName(w.date)})
@@ -1021,7 +1021,7 @@ export default function App() {
                         <button
                           onClick={() => startEditWorkout(w)}
                           title="Edit record"
-                          style={{ background: '#e2e8f0', border: 'none', borderRadius: 6, color: '#cbd5e1', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', fontWeight: 600 }}>
+                          style={{ background: '#e2e8f0', border: 'none', borderRadius: 6, color: '#0f172a', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', fontWeight: 600 }}>
                           <Pencil size={14} /> Edit
                         </button>
                         <button 
@@ -1038,8 +1038,8 @@ export default function App() {
                       {(w.sets || []).map((s) => (
                         <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontSize: '0.8rem' }}>
                           <span style={{ color: '#64748b' }}>#{s.setNumber}</span>
-                          <span style={{ color: '#f8fafc' }}>{s.reps} reps</span>
-                          <span style={{ color: '#38bdf8', fontWeight: 600 }}>@ {s.weightKg} kg</span>
+                          <span style={{ color: '#0f172a' }}>{s.reps} reps</span>
+                          <span style={{ color: '#f97316', fontWeight: 600 }}>@ {s.weightKg} kg</span>
                         </div>
                       ))}
                     </div>
@@ -1065,7 +1065,7 @@ export default function App() {
               onChange={(e) => setSelectedDate(e.target.value)}
               style={{ width: '100%', padding: '10px 12px', background: '#f8fafc', border: '1px solid #475569', borderRadius: 6, color: '#1e293b', fontSize: '0.95rem' }}
             />
-            <div style={{ fontSize: '0.8rem', color: '#38bdf8', marginTop: 8 }}>
+            <div style={{ fontSize: '0.8rem', color: '#f97316', marginTop: 8 }}>
               {getWeekdayName(selectedDate)}
             </div>
           </div>
@@ -1086,7 +1086,7 @@ export default function App() {
             </div>
             <div style={{ background: '#ffffff', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Tonnage Moved</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4, color: '#38bdf8' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4, color: '#f97316' }}>
                 {(volumeForSelectedDate / 1000).toFixed(1)} <span style={{ fontSize: '0.9rem' }}>tonnes</span>
               </div>
             </div>
@@ -1101,7 +1101,7 @@ export default function App() {
               {workoutsForSelectedDate.map((w) => {
                 const isEditing = editingWorkoutId === w.id;
                 return (
-                <div key={w.id} style={{ background: '#ffffff', padding: '12px 16px', borderRadius: 10, border: isEditing ? '1px solid #38bdf8' : '1px solid #e2e8f0' }}>
+                <div key={w.id} style={{ background: '#ffffff', padding: '12px 16px', borderRadius: 10, border: isEditing ? '1px solid #f97316' : '1px solid #e2e8f0' }}>
                   {isEditing ? (
                     <EditWorkoutForm
                       editDraft={editDraft}
@@ -1118,10 +1118,10 @@ export default function App() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', background: '#0369a1', color: '#e0f2fe', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                        <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', background: '#1e293b', color: '#e0f2fe', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
                           {w.muscleGroup}
                         </span>
-                        <strong style={{ fontSize: '1rem', color: '#f8fafc' }}>{w.exercise}</strong>
+                        <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{w.exercise}</strong>
                       </div>
                       <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 4 }}>
                         {w.sets?.length || 0} sets &nbsp;·&nbsp; {w.date} ({getWeekdayName(w.date)})
@@ -1136,7 +1136,7 @@ export default function App() {
                       <button
                         onClick={() => startEditWorkout(w)}
                         title="Edit record"
-                        style={{ background: '#e2e8f0', border: 'none', borderRadius: 6, color: '#cbd5e1', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', fontWeight: 600 }}>
+                        style={{ background: '#e2e8f0', border: 'none', borderRadius: 6, color: '#0f172a', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', fontWeight: 600 }}>
                         <Pencil size={14} /> Edit
                       </button>
                       <button
@@ -1153,8 +1153,8 @@ export default function App() {
                     {(w.sets || []).map((s) => (
                       <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontSize: '0.8rem' }}>
                         <span style={{ color: '#64748b' }}>#{s.setNumber}</span>
-                        <span style={{ color: '#f8fafc' }}>{s.reps} reps</span>
-                        <span style={{ color: '#38bdf8', fontWeight: 600 }}>@ {s.weightKg} kg</span>
+                        <span style={{ color: '#0f172a' }}>{s.reps} reps</span>
+                        <span style={{ color: '#f97316', fontWeight: 600 }}>@ {s.weightKg} kg</span>
                       </div>
                     ))}
                   </div>
@@ -1172,7 +1172,7 @@ export default function App() {
       {activeTab === 'progress' && (
         <div>
           <div style={{ background: '#ffffff', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 16 }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#38bdf8', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#f97316', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
               <TrendingUp size={18} /> Progress
             </h2>
             <p style={{ fontSize: '0.85rem', color: '#64748b' }}>
@@ -1187,7 +1187,7 @@ export default function App() {
       {activeTab === 'traffic' && (
         <div>
           <div style={{ background: '#ffffff', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 16 }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#38bdf8', marginBottom: 6 }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#f97316', marginBottom: 6 }}>
               How User Traffic Works Under the Hood
             </h2>
             <p style={{ fontSize: '0.85rem', color: '#64748b', lineHeight: 1.5 }}>
@@ -1218,7 +1218,7 @@ export default function App() {
                       <td style={{ padding: '8px 12px' }}>
                         <span style={{
                           fontWeight: 700,
-                          color: log.method === 'POST' ? '#34d399' : log.method === 'DELETE' ? '#f87171' : '#38bdf8'
+                          color: log.method === 'POST' ? '#34d399' : log.method === 'DELETE' ? '#f87171' : '#f97316'
                         }}>
                           {log.method}
                         </span>
@@ -1235,7 +1235,7 @@ export default function App() {
                       <td style={{ padding: '8px 12px' }}>
                         {log.dbQuery ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ background: '#0369a1', color: '#e0f2fe', padding: '1px 6px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700 }}>
+                            <span style={{ background: '#1e293b', color: '#e0f2fe', padding: '1px 6px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700 }}>
                               {log.dbQuery.durationMs}ms
                             </span>
                             <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#cbd5e1', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

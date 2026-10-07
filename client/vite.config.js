@@ -40,6 +40,11 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // Take over immediately instead of waiting for all tabs to close
+        skipWaiting: true,
+        clientsClaim: true,
+        // Drop old precaches from previous deploys right away
+        cleanupOutdatedCaches: true,
         // Cache the app shell for offline loading
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
         runtimeCaching: [
