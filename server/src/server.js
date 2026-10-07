@@ -6,6 +6,8 @@ import { requestTracker } from './middleware/tracker.js';
 import traceRoutes from './routes/trace.js';
 import { getCurrentTrace } from './asyncContext.js';
 import { startStep, finishStep } from './requestTracker.js';
+import { requireAdmin } from './middleware/auth.js';
+import authRoutes from './routes/auth.js';
 
 dotenv.config();
 
@@ -103,11 +105,12 @@ app.use((req, res, next) => {
 });
 
 // --- 3. Endpoints ---
-app.use('/api/traces', traceRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/traces', requireAdmin, traceRoutes);
 
 
 // Health & System Telemetry Endpoint
-app.get('/api/health', async (req, res) => {
+app.get('/api/health', requireAdmin, async (req, res) => {
   let dbStatus = 'disconnected';
   try {
     await dbTrace('SELECT 1 (health check)', () => prisma.$queryRaw`SELECT 1`);
@@ -131,7 +134,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Traffic Monitor Endpoint (for frontend live inspector)
-app.get('/api/traffic', (req, res) => {
+app.get('/api/traffic', requireAdmin, (req, res) => {
   res.json({
     trackedCount: requestLogs.length,
     requests: requestLogs
