@@ -1,5 +1,6 @@
-// Tiny IndexedDB-backed queue for workouts logged while offline.
-// Uses the `idb` package for a promise-based wrapper around IndexedDB.
+// Tiny IndexedDB-backed queue for workout operations (create/update/delete)
+// made while offline. Uses the `idb` package for a promise-based wrapper
+// around IndexedDB.
 import { openDB } from 'idb';
 
 const DB_NAME = 'gymtrack-offline';
@@ -24,9 +25,17 @@ function getDb() {
 // Save a workout payload that failed to POST due to being offline.
 // Returns the generated localId so the UI can show/remove it later.
 export async function addPendingWorkout(payload) {
+  return addPendingOperation({ type: 'create', payload });
+}
+
+// Generic queue entry for an operation that couldn't reach the server
+// (create/update/delete). `op` holds everything syncPendingWorkouts needs
+// to replay it later: { type, payload } for create, { type, workoutId,
+// editDraft, originalSets } for update, { type, workoutId } for delete.
+export async function addPendingOperation(op) {
   const db = await getDb();
   const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const record = { localId, payload, createdAt: Date.now() };
+  const record = { localId, createdAt: Date.now(), ...op };
   await db.put(STORE, record);
   return record;
 }

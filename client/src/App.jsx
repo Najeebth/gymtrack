@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Activity, Dumbbell, PlusCircle, Trash2, RefreshCw, BarChart2, ShieldCheck, Zap, Map, Plus, X, CalendarDays, Pencil, Check } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Activity, Dumbbell, PlusCircle, Trash2, RefreshCw, BarChart2, ShieldCheck, Zap, Map, Plus, X, CalendarDays, Pencil, Check, TrendingUp } from 'lucide-react';
 import LiveTrafficMap from './LiveTrafficMap.jsx';
-import { addPendingWorkout, getAllPending, removePending, countPending } from './offlineStore.js';
+import { addPendingWorkout, addPendingOperation, getAllPending, removePending, countPending } from './offlineStore.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://gymtrack-prdf.onrender.com';
 
@@ -16,7 +16,7 @@ function getWeekdayName(dateStr) {
 // A single consolidated edit form for a workout record: date, muscle group,
 // exercise, notes, and every set (editable, addable, removable) — all behind
 // one "Edit" button and one "Save" action, instead of separate per-field controls.
-function EditWorkoutForm({ editDraft, setEditDraft, addEditSetRow, removeEditSetRow, updateEditSetRow, onSave, onCancel }) {
+function EditWorkoutForm({ editDraft, setEditDraft, addEditSetRow, removeEditSetRow, updateEditSetRow, onSave, onCancel, saveStatus }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -111,13 +111,151 @@ function EditWorkoutForm({ editDraft, setEditDraft, addEditSetRow, removeEditSet
       </div>
 
       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-        <button onClick={onSave} style={{ background: '#0369a1', border: 'none', borderRadius: 6, color: '#e0f2fe', padding: '8px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}>
-          <Check size={14} /> Save Record
+        <button
+          onClick={onSave}
+          disabled={saveStatus === 'saving'}
+          style={{
+            background: saveStatus === 'queued' ? '#7c2d12' : '#0369a1',
+            border: 'none',
+            borderRadius: 6,
+            color: saveStatus === 'queued' ? '#fed7aa' : '#e0f2fe',
+            padding: '8px 14px',
+            cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            fontWeight: 600,
+            opacity: saveStatus === 'saving' ? 0.7 : 1
+          }}>
+          <Check size={14} />
+          {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'queued' ? 'Offline — queued' : 'Save Record'}
         </button>
         <button onClick={onCancel} style={{ background: 'transparent', border: '1px solid #475569', borderRadius: 6, color: '#94a3b8', padding: '8px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
           <X size={14} /> Cancel
         </button>
       </div>
+    </div>
+  );
+}
+
+// Lightweight SVG line chart (no charting library) showing a chosen exercise's
+// trend over time: either heaviest set per session or total volume moved.
+function ProgressChart({ workouts }) {
+  const exercises = useMemo(
+    () => Array.from(new Set(workouts.map((w) => w.exercise).filter(Boolean))).sort(),
+    [workouts]
+  );
+  const [selectedExercise, setSelectedExercise] = useState('');
+  const [metric, setMetric] = useState('maxWeight'); // 'maxWeight' | 'volume'
+
+  useEffect(() => {
+    if (!selectedExercise && exercises.length > 0) setSelectedExercise(exercises[0]);
+    if (selectedExercise && !exercises.includes(selectedExercise) && exercises.length > 0) {
+      setSelectedExercise(exercises[0]);
+    }
+  }, [exercises, selectedExercise]);
+
+  const series = useMemo(() => {
+    return workouts
+      .filter((w) => w.exercise === selectedExercise)
+      .map((w) => {
+        const sets = w.sets || [];
+        const maxWeight = sets.reduce((m, s) => Math.max(m, s.weightKg || 0), 0);
+        const volume = sets.reduce((sum, s) => sum + (s.reps || 0) * (s.weightKg || 0), 0);
+        return { date: w.date, maxWeight, volume };
+      })
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+  }, [workouts, selectedExercise]);
+
+  const width = 600;
+  const height = 220;
+  const padX = 36;
+  const padY = 24;
+
+  const values = series.map((p) => p[metric]);
+  const maxVal = Math.max(...values, 1);
+  const minVal = Math.min(...values, 0);
+  const range = maxVal - minVal || 1;
+
+  const points = series.map((p, i) => {
+    const x = series.length === 1 ? width / 2 : padX + (i * (width - 2 * padX)) / (series.length - 1);
+    const y = height - padY - ((p[metric] - minVal) / range) * (height - 2 * padY);
+    return { x, y, ...p };
+  });
+
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+
+  if (exercises.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: '#64748b', background: '#1e293b', borderRadius: 12, border: '1px solid #334155' }}>
+        Log a few workouts first — charts show up here once there's data to plot.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 16 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+        <select
+          value={selectedExercise}
+          onChange={(e) => setSelectedExercise(e.target.value)}
+          style={{ padding: '8px 10px', background: '#0f172a', border: '1px solid #475569', borderRadius: 6, color: '#fff' }}>
+          {exercises.map((ex) => (
+            <option key={ex} value={ex}>{ex}</option>
+          ))}
+        </select>
+
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={() => setMetric('maxWeight')}
+            style={{
+              padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+              background: metric === 'maxWeight' ? '#0284c7' : '#334155', color: '#fff'
+            }}>
+            Top Set (kg)
+          </button>
+          <button
+            onClick={() => setMetric('volume')}
+            style={{
+              padding: '6px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+              background: metric === 'volume' ? '#0284c7' : '#334155', color: '#fff'
+            }}>
+            Session Volume (kg)
+          </button>
+        </div>
+      </div>
+
+      {series.length === 0 ? (
+        <div style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>No logged sessions for this exercise yet.</div>
+      ) : (
+        <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto' }}>
+          {/* Horizontal gridlines */}
+          {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+            <line
+              key={f}
+              x1={padX} x2={width - padX}
+              y1={padY + f * (height - 2 * padY)} y2={padY + f * (height - 2 * padY)}
+              stroke="#334155" strokeWidth="1"
+            />
+          ))}
+
+          {points.length > 1 && <path d={pathD} fill="none" stroke="#38bdf8" strokeWidth="2.5" />}
+
+          {points.map((p, i) => (
+            <g key={i}>
+              <circle cx={p.x} cy={p.y} r="4" fill="#0ea5e9" stroke="#0f172a" strokeWidth="1.5" />
+              <title>{`${p.date}: ${p[metric]} ${metric === 'maxWeight' ? 'kg top set' : 'kg total volume'}`}</title>
+            </g>
+          ))}
+        </svg>
+      )}
+
+      {series.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: '0.75rem', color: '#64748b' }}>
+          <span>{series[0].date}</span>
+          {series.length > 1 && <span>{series[series.length - 1].date}</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -136,6 +274,12 @@ export default function App() {
   // how many workouts are queued locally in IndexedDB waiting to sync.
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingCount, setPendingCount] = useState(0);
+
+  // Save-button feedback: 'saving' while the API call is in flight, 'queued'
+  // briefly after it falls back to the offline queue, so the button itself
+  // tells the user what happened instead of looking like it silently worked.
+  const [submitStatus, setSubmitStatus] = useState(null);
+  const [editSaveStatus, setEditSaveStatus] = useState(null);
 
   // Inline-edit state: which workout is being edited (one "Edit" button per record),
   // and its full draft — workout fields plus every set (editable, addable, removable).
@@ -250,11 +394,19 @@ export default function App() {
 
     for (const item of pending) {
       try {
-        const res = await fetch(`${API_BASE}/api/workouts`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(item.payload)
-        });
+        let res;
+        if (item.type === 'delete') {
+          res = await fetch(`${API_BASE}/api/workouts/${item.workoutId}`, { method: 'DELETE' });
+        } else if (item.type === 'update') {
+          res = await replayUpdate(item);
+        } else {
+          // 'create' (and legacy entries saved before `type` existed)
+          res = await fetch(`${API_BASE}/api/workouts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item.payload)
+          });
+        }
         if (res.ok) {
           await removePending(item.localId);
         }
@@ -266,6 +418,46 @@ export default function App() {
     }
     setPendingCount(await countPending());
     refreshWorkouts();
+  };
+
+  // Replays a queued edit: workout fields, removed sets, and updated/new
+  // sets — same three-step sequence saveEditWorkout does live.
+  const replayUpdate = async (item) => {
+    const { workoutId, editDraft, originalSetIds } = item;
+    const res = await fetch(`${API_BASE}/api/workouts/${workoutId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date: editDraft.date,
+        muscleGroup: editDraft.muscleGroup,
+        exercise: editDraft.exercise,
+        notes: editDraft.notes
+      })
+    });
+
+    const keptIds = editDraft.sets.filter((s) => s.id).map((s) => s.id);
+    const removedIds = originalSetIds.filter((id) => !keptIds.includes(id));
+    await Promise.all(
+      removedIds.map((setId) =>
+        fetch(`${API_BASE}/api/workouts/${workoutId}/sets/${setId}`, { method: 'DELETE' })
+      )
+    );
+    await Promise.all(
+      editDraft.sets.map((s) =>
+        s.id
+          ? fetch(`${API_BASE}/api/workouts/${workoutId}/sets/${s.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reps: s.reps, weightKg: s.weightKg })
+            })
+          : fetch(`${API_BASE}/api/workouts/${workoutId}/sets`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reps: s.reps, weightKg: s.weightKg })
+            })
+      )
+    );
+    return res;
   };
 
   // Track connectivity and sync queued workouts whenever we come back online.
@@ -295,6 +487,7 @@ export default function App() {
     if (!formData.exercise.trim()) return;
 
     const payload = { ...formData };
+    setSubmitStatus('saving');
 
     try {
       const res = await fetch(`${API_BASE}/api/workouts`, {
@@ -305,6 +498,9 @@ export default function App() {
       if (res.ok) {
         setFormData({ ...formData, exercise: '', notes: '', sets: [{ reps: 10, weightKg: 60 }] });
         refreshWorkouts();
+        setSubmitStatus(null);
+      } else {
+        setSubmitStatus(null);
       }
     } catch (err) {
       // Network unavailable (offline) — queue it locally and sync later.
@@ -312,6 +508,8 @@ export default function App() {
       await addPendingWorkout(payload);
       setPendingCount(await countPending());
       setFormData({ ...formData, exercise: '', notes: '', sets: [{ reps: 10, weightKg: 60 }] });
+      setSubmitStatus('queued');
+      setTimeout(() => setSubmitStatus(null), 2500);
     }
   };
 
@@ -326,7 +524,12 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/workouts/${id}`, { method: 'DELETE' });
       if (res.ok) refreshWorkouts();
     } catch (err) {
-      console.error('Delete error:', err);
+      // Offline — queue the delete and remove it from view right away.
+      console.warn('Offline: queuing delete to sync later.', err);
+      await addPendingOperation({ type: 'delete', workoutId: id });
+      setPendingCount(await countPending());
+      setWorkouts((prev) => prev.filter((w) => w.id !== id));
+      setWorkoutsByDate((prev) => prev.filter((w) => w.id !== id));
     }
   };
 
@@ -372,6 +575,7 @@ export default function App() {
   // (updates existing sets, creates new ones, deletes removed ones).
   const saveEditWorkout = async (workout) => {
     if (!editDraft.exercise.trim() || editDraft.sets.length === 0) return;
+    setEditSaveStatus('saving');
     try {
       // 1. Update the workout's own fields
       await fetch(`${API_BASE}/api/workouts/${workout.id}`, {
@@ -413,9 +617,34 @@ export default function App() {
       );
 
       setEditingWorkoutId(null);
+      setEditSaveStatus(null);
       refreshWorkouts();
     } catch (err) {
-      console.error('Update workout error:', err);
+      // Offline — queue the edit and reflect it locally right away.
+      console.warn('Offline: queuing edit to sync later.', err);
+      const originalSetIds = (workout.sets || []).map((s) => s.id);
+      await addPendingOperation({
+        type: 'update',
+        workoutId: workout.id,
+        editDraft,
+        originalSetIds
+      });
+      setPendingCount(await countPending());
+
+      const updatedWorkout = {
+        ...workout,
+        date: editDraft.date,
+        muscleGroup: editDraft.muscleGroup,
+        exercise: editDraft.exercise,
+        notes: editDraft.notes,
+        sets: editDraft.sets.map((s, i) => ({ id: s.id || `local-set-${i}`, reps: s.reps, weightKg: s.weightKg }))
+      };
+      const applyLocal = (list) => list.map((w) => (w.id === workout.id ? updatedWorkout : w));
+      setWorkouts((prev) => applyLocal(prev));
+      setWorkoutsByDate((prev) => applyLocal(prev));
+      setEditingWorkoutId(null);
+      setEditSaveStatus('queued');
+      setTimeout(() => setEditSaveStatus(null), 2500);
     }
   };
 
@@ -509,7 +738,26 @@ export default function App() {
           <CalendarDays size={16} /> By Date
         </button>
 
-        <button 
+        <button
+          onClick={() => setActiveTab('progress')}
+          style={{
+            flex: 1,
+            padding: '10px 14px',
+            borderRadius: 8,
+            border: 'none',
+            background: activeTab === 'progress' ? '#0284c7' : '#1e293b',
+            color: '#fff',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6
+          }}>
+          <TrendingUp size={16} /> Progress
+        </button>
+
+        <button
           onClick={() => setActiveTab('traffic')}
           style={{
             flex: 1,
@@ -675,19 +923,25 @@ export default function App() {
               </div>
             </div>
 
-            <button 
+            <button
               type="submit"
+              disabled={submitStatus === 'saving'}
               style={{
                 width: '100%',
                 padding: '10px',
                 borderRadius: 8,
-                background: '#0284c7',
+                background: submitStatus === 'queued' ? '#7c2d12' : '#0284c7',
                 border: 'none',
-                color: '#fff',
+                color: submitStatus === 'queued' ? '#fed7aa' : '#fff',
                 fontWeight: 600,
-                cursor: 'pointer'
+                cursor: submitStatus === 'saving' ? 'not-allowed' : 'pointer',
+                opacity: submitStatus === 'saving' ? 0.7 : 1
               }}>
-              Save Entry & Broadcast API Call
+              {submitStatus === 'saving'
+                ? 'Saving…'
+                : submitStatus === 'queued'
+                ? 'Offline — saved locally, will sync later'
+                : 'Save Entry & Broadcast API Call'}
             </button>
           </form>
 
@@ -721,6 +975,7 @@ export default function App() {
                         updateEditSetRow={updateEditSetRow}
                         onSave={() => saveEditWorkout(w)}
                         onCancel={cancelEditWorkout}
+                        saveStatus={editSaveStatus}
                       />
                     ) : (
                     <>
@@ -835,6 +1090,7 @@ export default function App() {
                       updateEditSetRow={updateEditSetRow}
                       onSave={() => saveEditWorkout(w)}
                       onCancel={cancelEditWorkout}
+                      saveStatus={editSaveStatus}
                     />
                   ) : (
                   <>
@@ -888,6 +1144,21 @@ export default function App() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB: PROGRESS CHARTS */}
+      {activeTab === 'progress' && (
+        <div>
+          <div style={{ background: '#1e293b', padding: 16, borderRadius: 12, border: '1px solid #334155', marginBottom: 16 }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#38bdf8', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <TrendingUp size={18} /> Progress
+            </h2>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+              Track how your top set weight or total session volume changes over time, per exercise.
+            </p>
+          </div>
+          <ProgressChart workouts={workouts} />
         </div>
       )}
 
