@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { PlusCircle, Plus, X, RefreshCw } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 import WorkoutCard from '../components/WorkoutCard';
+import ExerciseAutocomplete from '../components/ExerciseAutocomplete';
 import type { SaveStatus, SetDraft, Workout, WorkoutDraft } from '../types';
 
 const fieldInput = 'w-full px-2.5 py-2 bg-slate-50 border border-slate-500 rounded-md text-slate-800';
@@ -170,11 +171,11 @@ export default function WorkoutsPage() {
 
         <div className="mb-3">
           <label className={fieldLabel}>Exercise Name</label>
-          <input
-            type="text"
-            placeholder="e.g. Barbell Incline Press, Romanian Deadlift"
+          <ExerciseAutocomplete
             value={formData.exercise}
-            onChange={(e) => setFormData({ ...formData, exercise: e.target.value })}
+            onChange={(val) => setFormData({ ...formData, exercise: val })}
+            muscleGroup={formData.muscleGroup}
+            placeholder="e.g. Barbell Incline Press, Romanian Deadlift"
             required
             className={fieldInput}
           />

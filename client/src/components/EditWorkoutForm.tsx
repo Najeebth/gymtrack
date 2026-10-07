@@ -1,5 +1,6 @@
 import { Plus, X, Check } from 'lucide-react';
 import type { WorkoutDraft, SaveStatus } from '../types';
+import ExerciseAutocomplete from './ExerciseAutocomplete';
 
 interface EditWorkoutFormProps {
   editDraft: WorkoutDraft;
@@ -60,10 +61,10 @@ export default function EditWorkoutForm({
 
       <div>
         <label className={fieldLabel}>Exercise Name</label>
-        <input
-          type="text"
+        <ExerciseAutocomplete
           value={editDraft.exercise}
-          onChange={(e) => setEditDraft({ ...editDraft, exercise: e.target.value })}
+          onChange={(val) => setEditDraft({ ...editDraft, exercise: val })}
+          muscleGroup={editDraft.muscleGroup}
           placeholder="Exercise name"
           className={fieldInput}
         />

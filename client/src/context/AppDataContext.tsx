@@ -4,6 +4,7 @@ import { fetchWorkoutsApi, createWorkoutApi, deleteWorkoutApi, deleteSetApi, upd
 import { fetchTrafficApi, fetchHealthApi, loginApi } from '../api/admin';
 import { addPendingWorkout, addPendingOperation, getAllPending, removePending, countPending } from '../offlineStore';
 import type { PendingRecord } from '../types';
+import { useToast } from './ToastContext';
 
 interface AppDataContextValue {
   // Admin / auth
@@ -16,7 +17,7 @@ interface AppDataContextValue {
   loading: boolean;
   lastApiLatency: string | null;
   fetchWorkouts: () => Promise<void>;
-  createWorkout: (payload: WorkoutDraft) => Promise<'saved' | 'queued'>;
+  createWorkout: (payload: WorkoutDraft) => Promise<'saved' | 'queued' | 'error'>;
   deleteWorkout: (id: string) => Promise<void>;
   saveEditWorkout: (workout: Workout, draft: WorkoutDraft) => Promise<'saved' | 'queued'>;
 
@@ -38,6 +39,7 @@ interface AppDataContextValue {
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
+  const { showToast } = useToast();
   const [adminToken, setAdminToken] = useState<string | null>(localStorage.getItem('adminToken'));
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [workoutsByDate, setWorkoutsByDate] = useState<Workout[]>([]);
@@ -168,27 +170,33 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const createWorkout = useCallback(async (payload: WorkoutDraft): Promise<'saved' | 'queued'> => {
+  const createWorkout = useCallback(async (payload: WorkoutDraft): Promise<'saved' | 'queued' | 'error'> => {
     try {
       const res = await createWorkoutApi(payload);
       if (res.ok) {
         fetchWorkouts();
+        showToast('Workout saved', 'success');
         return 'saved';
       }
-      return 'saved';
+      showToast('Failed to save workout', 'error');
+      return 'error';
     } catch (err) {
       console.warn('Offline: queuing workout to sync later.', err);
       await addPendingWorkout(payload);
       setPendingCount(await countPending());
+      showToast('Offline — workout queued to sync later', 'info');
       return 'queued';
     }
-  }, [fetchWorkouts]);
+  }, [fetchWorkouts, showToast]);
 
   const deleteWorkout = useCallback(async (id: string) => {
     try {
       const res = await deleteWorkoutApi(id);
       if (res.ok) {
         fetchWorkouts();
+        showToast('Workout deleted', 'success');
+      } else {
+        showToast('Failed to delete workout', 'error');
       }
     } catch (err) {
       console.warn('Offline: queuing delete to sync later.', err);
@@ -196,8 +204,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setPendingCount(await countPending());
       setWorkouts((prev) => prev.filter((w) => w.id !== id));
       setWorkoutsByDate((prev) => prev.filter((w) => w.id !== id));
+      showToast('Offline — delete queued to sync later', 'info');
     }
-  }, [fetchWorkouts]);
+  }, [fetchWorkouts, showToast]);
 
   const saveEditWorkout = useCallback(async (workout: Workout, editDraft: WorkoutDraft): Promise<'saved' | 'queued'> => {
     try {
@@ -220,6 +229,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       );
 
       fetchWorkouts();
+      showToast('Workout updated', 'success');
       return 'saved';
     } catch (err) {
       console.warn('Offline: queuing edit to sync later.', err);
@@ -242,19 +252,22 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       const applyLocal = (list: Workout[]) => list.map((w) => (w.id === workout.id ? updatedWorkout : w));
       setWorkouts((prev) => applyLocal(prev));
       setWorkoutsByDate((prev) => applyLocal(prev));
+      showToast('Offline — edit queued to sync later', 'info');
       return 'queued';
     }
-  }, [fetchWorkouts]);
+  }, [fetchWorkouts, showToast]);
 
   const login = useCallback(async (username: string, password: string) => {
     const result = await loginApi(username, password);
     if (result.ok && result.token) {
       localStorage.setItem('adminToken', result.token);
       setAdminToken(result.token);
+      showToast('Logged in as Admin', 'success');
       return { ok: true };
     }
+    showToast(result.error || 'Login failed', 'error');
     return { ok: false, error: result.error };
-  }, []);
+  }, [showToast]);
 
   const logout = useCallback(() => {
     localStorage.removeItem('adminToken');
