@@ -6,13 +6,13 @@ const COLORS: Record<string, string> = {
   info: 'bg-brand-orange text-white'
 };
 
-// Fixed-position toast stack (bottom-right), themed to match the rest of
+// Fixed-position toast stack (top-right), themed to match the rest of
 // the app instead of relying on a third-party toast library.
 export default function ToastStack() {
   const { toasts, dismissToast } = useToast();
 
   return (
-    <div className="fixed bottom-5 right-5 z-[1000] flex flex-col gap-2 max-w-[320px]">
+    <div className="fixed top-5 right-5 z-[1000] flex flex-col gap-2 max-w-[320px]">
       {toasts.map((t) => (
         <div
           key={t.id}
