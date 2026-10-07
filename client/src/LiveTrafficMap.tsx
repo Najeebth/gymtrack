@@ -1,9 +1,44 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://gymtrack-prdf.onrender.com';
+declare global {
+  interface Window {
+    mermaid?: {
+      initialize: (opts: { startOnLoad: boolean; theme: string }) => void;
+      render: (id: string, chart: string) => Promise<{ svg: string }>;
+    };
+  }
+}
+
+interface EndpointDef {
+  method: 'GET' | 'POST' | 'DELETE';
+  path: string;
+  description: string;
+  body: Record<string, unknown> | null;
+}
+
+interface TraceStep {
+  name: string;
+  durationMs?: number;
+  cpuStart?: { user: number };
+  cpuEnd?: { user: number };
+  memStart?: { rss: number };
+  memEnd?: { rss: number };
+}
+
+interface Trace {
+  id: string;
+  steps: TraceStep[];
+}
+
+interface CallResult {
+  status: number | string;
+  body: unknown;
+}
+
+const API_BASE: string = (import.meta.env.VITE_API_URL as string | undefined) || 'https://gymtrack-prdf.onrender.com';
 
 // All available API endpoints on this server
-const ENDPOINTS = [
+const ENDPOINTS: EndpointDef[] = [
   {
     method: 'GET',
     path: '/api/health',
@@ -50,8 +85,8 @@ const METHOD_COLORS = {
   DELETE: { bg: '#991b1b', text: '#fee2e2' },
 };
 
-function Mermaid({ chart }) {
-  const container = useRef(null);
+function Mermaid({ chart }: { chart: string }) {
+  const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function render() {
@@ -62,7 +97,7 @@ function Mermaid({ chart }) {
         .then(({ svg }) => {
           if (container.current) container.current.innerHTML = svg;
         })
-        .catch(err => {
+        .catch((err: Error) => {
           if (container.current) container.current.innerHTML = `<p style="color:#f87171;font-size:0.8rem;">Chart error: ${err.message}</p>`;
         });
     }
@@ -80,15 +115,15 @@ function Mermaid({ chart }) {
   return <div ref={container} className="overflow-auto" />;
 }
 
-function TraceDetail({ traceId }) {
-  const [trace, setTrace] = useState(null);
+function TraceDetail({ traceId }: { traceId: string | null }) {
+  const [trace, setTrace] = useState<Trace | null>(null);
 
   useEffect(() => {
     if (!traceId) return;
     setTrace(null);
 
     const es = new EventSource(`${API_BASE}/api/traces/stream/${traceId}`);
-    es.onmessage = (e) => setTrace(JSON.parse(e.data));
+    es.onmessage = (e: MessageEvent) => setTrace(JSON.parse(e.data));
     es.onerror = () => es.close();
 
     return () => es.close();
@@ -96,8 +131,8 @@ function TraceDetail({ traceId }) {
 
   if (!trace) return <p style={{ color: '#94a3b8', padding: 24 }}>Waiting for trace data…</p>;
 
-  const fmt = (n) => typeof n === 'number' ? n.toFixed(2) : '-';
-  const sanitize = (str) => str.replace(/"/g, "'").replace(/[<>{}|]/g, '');
+  const fmt = (n?: number) => (typeof n === 'number' ? n.toFixed(2) : '-');
+  const sanitize = (str: string) => str.replace(/"/g, "'").replace(/[<>{}|]/g, '');
 
   const stepLines = trace.steps.map((s, i) => {
     const cpu = s.cpuEnd && s.cpuStart ? (s.cpuEnd.user - s.cpuStart.user).toLocaleString() : '?';
@@ -144,7 +179,7 @@ function TraceDetail({ traceId }) {
           {trace.steps.map((s, i) => (
             <tr key={i} style={{ borderBottom: '1px solid #1e293b' }}>
               <td style={{ padding: '8px 12px', fontFamily: 'monospace' }}>{s.name}</td>
-              <td style={{ padding: '8px 12px', textAlign: 'right', color: s.durationMs > 100 ? '#fbbf24' : '#4ade80' }}>
+              <td style={{ padding: '8px 12px', textAlign: 'right', color: (s.durationMs ?? 0) > 100 ? '#fbbf24' : '#4ade80' }}>
                 {s.durationMs ? fmt(s.durationMs) + ' ms' : '-'}
               </td>
               <td style={{ padding: '8px 12px', textAlign: 'right' }}>
@@ -162,17 +197,17 @@ function TraceDetail({ traceId }) {
 }
 
 export default function LiveTrafficMap() {
-  const [activeTraceId, setActiveTraceId] = useState(null);
-  const [callResult, setCallResult]       = useState(null); // { status, body }
-  const [calling, setCalling]             = useState(false);
+  const [activeTraceId, setActiveTraceId] = useState<string | null>(null);
+  const [callResult, setCallResult] = useState<CallResult | null>(null);
+  const [calling, setCalling] = useState(false);
 
-  const callEndpoint = async (endpoint) => {
+  const callEndpoint = async (endpoint: EndpointDef) => {
     setCalling(true);
     setCallResult(null);
     setActiveTraceId(null);
 
     try {
-      const options = {
+      const options: RequestInit = {
         method: endpoint.method,
         headers: { 'Content-Type': 'application/json' },
       };
@@ -185,7 +220,7 @@ export default function LiveTrafficMap() {
       setCallResult({ status: res.status, body });
       if (traceId) setActiveTraceId(traceId);
     } catch (err) {
-      setCallResult({ status: 'Error', body: { error: err.message } });
+      setCallResult({ status: 'Error', body: { error: (err as Error).message } });
     } finally {
       setCalling(false);
     }
@@ -260,8 +295,8 @@ export default function LiveTrafficMap() {
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #1e293b', background: '#0f172a' }}>
             <span style={{
               fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4, marginRight: 8,
-              background: callResult.status < 400 ? '#166534' : '#991b1b',
-              color: callResult.status < 400 ? '#dcfce7' : '#fee2e2'
+              background: Number(callResult.status) < 400 ? '#166534' : '#991b1b',
+              color: Number(callResult.status) < 400 ? '#dcfce7' : '#fee2e2'
             }}>
               {callResult.status}
             </span>

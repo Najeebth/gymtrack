@@ -1,15 +1,16 @@
 // Tiny IndexedDB-backed queue for workout operations (create/update/delete)
 // made while offline. Uses the `idb` package for a promise-based wrapper
 // around IndexedDB.
-import { openDB } from 'idb';
+import { openDB, type IDBPDatabase } from 'idb';
+import type { PendingOperation, PendingRecord, WorkoutDraft } from './types';
 
 const DB_NAME = 'gymtrack-offline';
 const DB_VERSION = 1;
 const STORE = 'pendingWorkouts';
 
-let dbPromise = null;
+let dbPromise: Promise<IDBPDatabase> | null = null;
 
-function getDb() {
+function getDb(): Promise<IDBPDatabase> {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
       upgrade(db) {
@@ -24,7 +25,7 @@ function getDb() {
 
 // Save a workout payload that failed to POST due to being offline.
 // Returns the generated localId so the UI can show/remove it later.
-export async function addPendingWorkout(payload) {
+export async function addPendingWorkout(payload: WorkoutDraft) {
   return addPendingOperation({ type: 'create', payload });
 }
 
@@ -32,28 +33,28 @@ export async function addPendingWorkout(payload) {
 // (create/update/delete). `op` holds everything syncPendingWorkouts needs
 // to replay it later: { type, payload } for create, { type, workoutId,
 // editDraft, originalSets } for update, { type, workoutId } for delete.
-export async function addPendingOperation(op) {
+export async function addPendingOperation(op: PendingOperation): Promise<PendingRecord> {
   const db = await getDb();
   const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const record = { localId, createdAt: Date.now(), ...op };
+  const record: PendingRecord = { localId, createdAt: Date.now(), ...op };
   await db.put(STORE, record);
   return record;
 }
 
 // Returns all workouts queued while offline, oldest first.
-export async function getAllPending() {
+export async function getAllPending(): Promise<PendingRecord[]> {
   const db = await getDb();
-  const all = await db.getAll(STORE);
+  const all: PendingRecord[] = await db.getAll(STORE);
   return all.sort((a, b) => a.createdAt - b.createdAt);
 }
 
 // Remove a queued workout once it has been successfully synced to the server.
-export async function removePending(localId) {
+export async function removePending(localId: string): Promise<void> {
   const db = await getDb();
   await db.delete(STORE, localId);
 }
 
-export async function countPending() {
+export async function countPending(): Promise<number> {
   const db = await getDb();
   return db.count(STORE);
 }
