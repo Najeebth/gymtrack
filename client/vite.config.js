@@ -45,9 +45,28 @@ export default defineConfig({
         clientsClaim: true,
         // Drop old precaches from previous deploys right away
         cleanupOutdatedCaches: true,
-        // Cache the app shell for offline loading
-        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // Cache the app shell for offline loading, but NOT the HTML itself —
+        // the HTML is handled by the navigateFallback/runtimeCaching rules
+        // below so every navigation tries the network first and always
+        // picks up a fresh deploy instead of a precached shell.
+        globPatterns: ['**/*.{js,css,svg,png,ico}'],
+        // Disable the plugin's default navigateFallback (it's bound to the
+        // now-unprecached index.html) — navigation is handled entirely by
+        // the NetworkFirst runtimeCaching rule below instead.
+        navigateFallback: null,
         runtimeCaching: [
+          {
+            // Navigation requests (the HTML shell): always try network first
+            // so a new deploy shows up immediately, falling back to the
+            // cached shell only when offline.
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'gymtrack-shell-cache',
+              networkTimeoutSeconds: 5,
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
           {
             // GET requests to the API: serve from network, fall back to cache when offline
             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
