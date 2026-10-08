@@ -1,11 +1,8 @@
-import { Router } from 'express';
-import { getStore } from '../requestTracker.js';
+import type { Request, Response } from 'express';
+import { getStore } from '../lib/requestTracker.js';
 
-const router = Router();
-
-// List all active/recent requests
-router.get('/list', (req, res) => {
-  const traces = Array.from(getStore().values()).map(t => ({
+export function listTraces(_req: Request, res: Response): void {
+  const traces = Array.from(getStore().values()).map((t) => ({
     id: t.id,
     method: t.method,
     url: t.url,
@@ -13,22 +10,22 @@ router.get('/list', (req, res) => {
     stepsCount: t.steps.length,
   }));
   res.json(traces);
-});
+}
 
-// Stream details of a single request
-router.get('/stream/:id', (req, res) => {
+export function streamTrace(req: Request, res: Response): void {
   const { id } = req.params;
   const trace = getStore().get(id);
-  
+
   if (!trace) {
-    return res.status(404).send('not found');
+    res.status(404).send('not found');
+    return;
   }
 
   // Set SSE headers
   res.set({
     'Cache-Control': 'no-cache',
     'Content-Type': 'text/event-stream',
-    'Connection': 'keep-alive',
+    Connection: 'keep-alive',
   });
   res.flushHeaders();
 
@@ -47,6 +44,4 @@ router.get('/stream/:id', (req, res) => {
     clearInterval(keepAlive);
     trace.push = undefined;
   });
-});
-
-export default router;
+}
