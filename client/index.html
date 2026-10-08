@@ -12,6 +12,17 @@
     <link rel="apple-touch-icon" href="/icon.svg" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <script>
+      // Paint the landing page's first colour before the app bundle loads, so
+      // the intro doesn't start with a white flash. Mirrors shouldPlayIntro().
+      (function () {
+        if (location.pathname !== '/') return;
+        var seen = false;
+        try { seen = sessionStorage.getItem('gymtrack_intro_shown') === '1'; } catch (e) {}
+        var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        document.documentElement.style.backgroundColor = !reduced && !seen ? '#F97316' : '#0F172A';
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

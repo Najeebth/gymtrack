@@ -18,3 +18,20 @@ body {
 button, input, select, textarea {
   font-family: inherit;
 }
+
+/* Idle bobbing for the landing page's floating elements. Uses `translate`
+   rather than `transform` so it composes with an element's own rotation. */
+@keyframes gt-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -12px; }
+}
+
+.gt-float {
+  animation: gt-float 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gt-float {
+    animation: none;
+  }
+}
