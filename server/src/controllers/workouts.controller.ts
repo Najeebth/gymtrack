@@ -14,17 +14,26 @@ function normalizeSets(rawSets: SetInput[]): NormalizedSet[] {
   }));
 }
 
-// GET all workouts from PostgreSQL (each with its nested sets)
-// Optional ?date=YYYY-MM-DD query param filters to workouts logged on that date.
+// Every mutation below confirms the workout belongs to the authenticated
+// user before touching it (or its nested sets), so one member can never
+// read or modify another member's data even by guessing a workout/set id.
+async function findOwnedWorkout(id: string, userId: string) {
+  return prisma.workout.findFirst({ where: { id, userId } });
+}
+
+// GET all workouts belonging to the authenticated user (each with its
+// nested sets). Optional ?date=YYYY-MM-DD query param filters to workouts
+// logged on that date.
 export async function listWorkouts(req: Request, res: Response): Promise<void> {
   const { date } = req.query;
+  const userId = req.user!.id;
 
   try {
     const workouts = await dbTrace(
       date ? `findMany Workout (date:${date})` : 'findMany Workout (ordered by createdAt desc)',
       () =>
         prisma.workout.findMany({
-          where: date ? { date: String(date) } : undefined,
+          where: { userId, ...(date ? { date: String(date) } : {}) },
           orderBy: { createdAt: 'desc' },
           include: { sets: { orderBy: { setNumber: 'asc' } } },
         })
@@ -36,8 +45,10 @@ export async function listWorkouts(req: Request, res: Response): Promise<void> {
   }
 }
 
-// POST a new workout entry (with one or more sets) to PostgreSQL
+// POST a new workout entry (with one or more sets), owned by the
+// authenticated user.
 export async function createWorkout(req: Request, res: Response): Promise<void> {
+  const userId = req.user!.id;
   const { date, muscleGroup, exercise, notes, sets } = req.body;
   const normalizedSets = normalizeSets(sets);
 
@@ -58,6 +69,7 @@ export async function createWorkout(req: Request, res: Response): Promise<void> 
           muscleGroup: muscleGroup || 'General',
           exercise: exercise.trim(),
           notes: notes || '',
+          userId,
           sets: { create: normalizedSets },
         },
         include: { sets: { orderBy: { setNumber: 'asc' } } },
@@ -73,6 +85,7 @@ export async function createWorkout(req: Request, res: Response): Promise<void> 
 // PUT update a workout's own fields (date, muscleGroup, exercise, notes)
 export async function updateWorkout(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
+  const userId = req.user!.id;
   const { date, muscleGroup, exercise, notes } = req.body;
 
   if (exercise !== undefined && !String(exercise).trim()) {
@@ -81,6 +94,12 @@ export async function updateWorkout(req: Request, res: Response): Promise<void> 
   }
 
   try {
+    const owned = await findOwnedWorkout(id, userId);
+    if (!owned) {
+      res.status(404).json({ error: 'Workout not found' });
+      return;
+    }
+
     const data: Record<string, unknown> = {};
     if (date !== undefined) data.date = date;
     if (muscleGroup !== undefined) data.muscleGroup = muscleGroup;
@@ -104,6 +123,7 @@ export async function updateWorkout(req: Request, res: Response): Promise<void> 
 // PUT update a single set's reps/weightKg
 export async function updateSet(req: Request, res: Response): Promise<void> {
   const { id, setId } = req.params;
+  const userId = req.user!.id;
   const { reps, weightKg } = req.body;
 
   const numReps = Number(reps);
@@ -114,12 +134,24 @@ export async function updateSet(req: Request, res: Response): Promise<void> {
   }
 
   try {
-    await dbTrace(`update WorkoutSet id:${setId}`, () =>
-      prisma.workoutSet.update({
-        where: { id: setId },
+    const owned = await findOwnedWorkout(id, userId);
+    if (!owned) {
+      res.status(404).json({ error: 'Workout not found' });
+      return;
+    }
+
+    // Matched on workoutId too: owning the workout in the URL must not let a
+    // caller reach a set that belongs to someone else's workout.
+    const result = await dbTrace(`update WorkoutSet id:${setId}`, () =>
+      prisma.workoutSet.updateMany({
+        where: { id: setId, workoutId: id },
         data: { reps: numReps, weightKg: numWeight },
       })
     );
+    if (result.count === 0) {
+      res.status(404).json({ error: 'Set not found' });
+      return;
+    }
     const updated = await dbTrace(`findUnique Workout id:${id} (after set update)`, () =>
       prisma.workout.findUnique({ where: { id }, include: { sets: { orderBy: { setNumber: 'asc' } } } })
     );
@@ -133,11 +165,12 @@ export async function updateSet(req: Request, res: Response): Promise<void> {
 // POST additional set(s) onto an existing workout
 export async function addSets(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
+  const userId = req.user!.id;
   const newSets: SetInput[] = Array.isArray(req.body.sets) ? req.body.sets : [req.body];
 
   try {
     const workout = await dbTrace(`findUnique Workout id:${id} (for set append)`, () =>
-      prisma.workout.findUnique({ where: { id }, include: { sets: true } })
+      prisma.workout.findFirst({ where: { id, userId }, include: { sets: true } })
     );
     if (!workout) {
       res.status(404).json({ error: 'Workout not found' });
@@ -173,9 +206,22 @@ export async function addSets(req: Request, res: Response): Promise<void> {
 // DELETE a single set from a workout
 export async function deleteSet(req: Request, res: Response): Promise<void> {
   const { id, setId } = req.params;
+  const userId = req.user!.id;
 
   try {
-    await dbTrace(`delete WorkoutSet id:${setId}`, () => prisma.workoutSet.delete({ where: { id: setId } }));
+    const owned = await findOwnedWorkout(id, userId);
+    if (!owned) {
+      res.status(404).json({ error: 'Workout not found' });
+      return;
+    }
+
+    const result = await dbTrace(`delete WorkoutSet id:${setId}`, () =>
+      prisma.workoutSet.deleteMany({ where: { id: setId, workoutId: id } })
+    );
+    if (result.count === 0) {
+      res.status(404).json({ error: 'Set not found or already deleted' });
+      return;
+    }
     const updated = await dbTrace(`findUnique Workout id:${id} (after set delete)`, () =>
       prisma.workout.findUnique({ where: { id }, include: { sets: { orderBy: { setNumber: 'asc' } } } })
     );
@@ -186,12 +232,19 @@ export async function deleteSet(req: Request, res: Response): Promise<void> {
   }
 }
 
-// DELETE a workout entry (and its sets, via cascade) from PostgreSQL
+// DELETE a workout entry (and its sets, via cascade)
 export async function deleteWorkout(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
+  const userId = req.user!.id;
 
   try {
-    await dbTrace(`delete Workout id:${id}`, () => prisma.workout.delete({ where: { id } }));
+    const result = await dbTrace(`delete Workout id:${id}`, () =>
+      prisma.workout.deleteMany({ where: { id, userId } })
+    );
+    if (result.count === 0) {
+      res.status(404).json({ error: 'Workout not found or already deleted' });
+      return;
+    }
     res.json({ success: true, message: `Workout ${id} deleted` });
   } catch (err) {
     console.error('Error deleting workout in Postgres:', err);

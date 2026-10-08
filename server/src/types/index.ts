@@ -38,9 +38,12 @@ export interface TrafficLogEntry {
   userAgent: string;
 }
 
-export interface AdminTokenPayload {
+export type Role = 'MEMBER' | 'ADMIN';
+
+export interface UserTokenPayload {
   id: string;
-  username: string;
+  email: string;
+  role: Role;
 }
 
 export interface SetInput {
@@ -60,7 +63,7 @@ declare global {
   namespace Express {
     interface Request {
       traceId?: string;
-      admin?: AdminTokenPayload;
+      user?: UserTokenPayload;
     }
     interface Response {
       trace?: Trace;

@@ -3,10 +3,9 @@ import type { ReactNode } from 'react';
 import { useAppData } from '../context/AppDataContext';
 
 // Route guard for admin-only pages (traffic/health/map): redirects to the
-// admin login screen whenever there's no adminToken, mirroring the previous
-// `{adminToken && (...)}` sidebar gating.
+// admin login screen unless the logged-in account's role is ADMIN.
 export default function RequireAdmin({ children }: { children: ReactNode }) {
-  const { adminToken } = useAppData();
-  if (!adminToken) return <Navigate to="/admin" replace />;
+  const { isAdmin } = useAppData();
+  if (!isAdmin) return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }

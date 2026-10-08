@@ -8,6 +8,21 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum Role {
+  MEMBER
+  ADMIN
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  role      Role      @default(MEMBER)
+  createdAt DateTime  @default(now())
+  workouts  Workout[]
+  templates Template[]
+}
+
 model Workout {
   id          String      @id @default(uuid())
   date        String
@@ -16,6 +31,8 @@ model Workout {
   notes       String?
   createdAt   DateTime    @default(now())
   sets        WorkoutSet[]
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model WorkoutSet {
@@ -28,9 +45,23 @@ model WorkoutSet {
   createdAt DateTime @default(now())
 }
 
-model Admin {
-  id        String   @id @default(uuid())
-  username  String   @unique
-  password  String
-  createdAt DateTime @default(now())
+// A saved routine ("Push Day"): an ordered list of exercises, each with its
+// default sets stored as JSON: [{ "reps": 10, "weightKg": 60 }, ...].
+model Template {
+  id        String             @id @default(uuid())
+  name      String
+  createdAt DateTime           @default(now())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercises TemplateExercise[]
+}
+
+model TemplateExercise {
+  id          String   @id @default(uuid())
+  position    Int
+  muscleGroup String
+  exercise    String
+  sets        Json
+  templateId  String
+  template    Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }

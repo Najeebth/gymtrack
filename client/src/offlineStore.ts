@@ -25,27 +25,34 @@ function getDb(): Promise<IDBPDatabase> {
 
 // Save a workout payload that failed to POST due to being offline.
 // Returns the generated localId so the UI can show/remove it later.
-export async function addPendingWorkout(payload: WorkoutDraft) {
-  return addPendingOperation({ type: 'create', payload });
+export async function addPendingWorkout(userId: string, payload: WorkoutDraft) {
+  return addPendingOperation(userId, { type: 'create', payload });
 }
 
 // Generic queue entry for an operation that couldn't reach the server
 // (create/update/delete). `op` holds everything syncPendingWorkouts needs
 // to replay it later: { type, payload } for create, { type, workoutId,
 // editDraft, originalSets } for update, { type, workoutId } for delete.
-export async function addPendingOperation(op: PendingOperation): Promise<PendingRecord> {
+export async function addPendingOperation(userId: string, op: PendingOperation): Promise<PendingRecord> {
   const db = await getDb();
   const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const record: PendingRecord = { localId, createdAt: Date.now(), ...op };
+  const record: PendingRecord = { localId, createdAt: Date.now(), userId, ...op };
   await db.put(STORE, record);
   return record;
 }
 
-// Returns all workouts queued while offline, oldest first.
-export async function getAllPending(): Promise<PendingRecord[]> {
+// Each account only ever sees its own queue, so a shared browser can't sync
+// one person's offline entries under another's login. Entries from before
+// accounts existed carry no owner and go to whoever syncs next.
+function belongsTo(userId: string) {
+  return (record: PendingRecord) => !record.userId || record.userId === userId;
+}
+
+// Returns this user's operations queued while offline, oldest first.
+export async function getAllPending(userId: string): Promise<PendingRecord[]> {
   const db = await getDb();
   const all: PendingRecord[] = await db.getAll(STORE);
-  return all.sort((a, b) => a.createdAt - b.createdAt);
+  return all.filter(belongsTo(userId)).sort((a, b) => a.createdAt - b.createdAt);
 }
 
 // Remove a queued workout once it has been successfully synced to the server.
@@ -54,7 +61,8 @@ export async function removePending(localId: string): Promise<void> {
   await db.delete(STORE, localId);
 }
 
-export async function countPending(): Promise<number> {
+export async function countPending(userId: string): Promise<number> {
   const db = await getDb();
-  return db.count(STORE);
+  const all: PendingRecord[] = await db.getAll(STORE);
+  return all.filter(belongsTo(userId)).length;
 }

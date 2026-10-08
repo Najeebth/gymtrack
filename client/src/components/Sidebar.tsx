@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Dumbbell, CalendarDays, TrendingUp, Activity, ShieldCheck, Map, Lock, Unlock } from 'lucide-react';
+import { Dumbbell, CalendarDays, TrendingUp, ClipboardList, Activity, ShieldCheck, Map, Users } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 
 const navItemClasses = ({ isActive }: { isActive: boolean }) =>
@@ -8,7 +8,7 @@ const navItemClasses = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 export default function Sidebar() {
-  const { adminToken } = useAppData();
+  const { isAdmin } = useAppData();
 
   return (
     <aside className="w-60 bg-white border-r border-brand-border py-6 px-3 flex flex-col gap-2 overflow-y-auto">
@@ -23,8 +23,11 @@ export default function Sidebar() {
       <NavLink to="/progress" className={navItemClasses}>
         <TrendingUp size={18} /> Progress
       </NavLink>
+      <NavLink to="/templates" className={navItemClasses}>
+        <ClipboardList size={18} /> Templates
+      </NavLink>
 
-      {adminToken && (
+      {isAdmin && (
         <>
           <div className="text-xs font-bold text-brand-muted px-3 mt-4 mb-2 uppercase tracking-wide">
             Admin Apps
@@ -38,21 +41,11 @@ export default function Sidebar() {
           <NavLink to="/map" className={navItemClasses}>
             <Map size={18} /> Request Map
           </NavLink>
+          <NavLink to="/users" className={navItemClasses}>
+            <Users size={18} /> Users
+          </NavLink>
         </>
       )}
-
-      <div className="mt-auto">
-        <NavLink
-          to="/admin"
-          className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-lg border-none text-left w-full font-semibold transition-all ${
-              isActive ? 'bg-slate-100' : 'bg-transparent'
-            } ${adminToken ? 'text-brand-success-soft' : 'text-amber-500'}`
-          }
-        >
-          {adminToken ? <Unlock size={18} /> : <Lock size={18} />} Admin Panel
-        </NavLink>
-      </div>
     </aside>
   );
 }

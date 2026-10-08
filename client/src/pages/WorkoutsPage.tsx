@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { PlusCircle, Plus, X, RefreshCw } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
+import { useTemplates } from '../hooks/useTemplates';
 import WorkoutCard from '../components/WorkoutCard';
 import ExerciseAutocomplete from '../components/ExerciseAutocomplete';
 import type { SaveStatus, SetDraft, Workout, WorkoutDraft } from '../types';
@@ -10,6 +11,7 @@ const fieldLabel = 'text-xs text-brand-muted block mb-1';
 
 export default function WorkoutsPage() {
   const { workouts, createWorkout, deleteWorkout, saveEditWorkout, fetchWorkouts } = useAppData();
+  const { templates } = useTemplates();
 
   const [formData, setFormData] = useState<WorkoutDraft>({
     date: new Date().toISOString().split('T')[0],
@@ -48,6 +50,18 @@ export default function WorkoutsPage() {
     setFormData((prev) => ({
       ...prev,
       sets: prev.sets.map((s, i) => (i === index ? { ...s, [field]: value } : s))
+    }));
+  };
+
+  // Copies one exercise of a saved template (group, name, default sets) into the form.
+  const fillFromTemplate = (exerciseId: string) => {
+    const exercise = templates.flatMap((t) => t.exercises).find((ex) => ex.id === exerciseId);
+    if (!exercise) return;
+    setFormData((prev) => ({
+      ...prev,
+      muscleGroup: exercise.muscleGroup,
+      exercise: exercise.exercise,
+      sets: exercise.sets.map((s) => ({ reps: s.reps, weightKg: s.weightKg }))
     }));
   };
 
@@ -138,9 +152,30 @@ export default function WorkoutsPage() {
 
       {/* Log New Workout Form */}
       <form onSubmit={handleSubmit} className="bg-white p-[18px] rounded-xl border border-brand-border mb-6">
-        <h2 className="text-base font-semibold mb-3.5 flex items-center gap-1.5">
-          <PlusCircle size={18} className="text-brand-orange" /> Log Session Exercise
-        </h2>
+        <div className="flex flex-wrap justify-between items-center gap-2 mb-3.5">
+          <h2 className="text-base font-semibold flex items-center gap-1.5">
+            <PlusCircle size={18} className="text-brand-orange" /> Log Session Exercise
+          </h2>
+          {templates.length > 0 && (
+            <select
+              value=""
+              onChange={(e) => fillFromTemplate(e.target.value)}
+              aria-label="Fill the form from a template"
+              className="px-2.5 py-1.5 bg-slate-50 border border-slate-500 rounded-md text-slate-800 text-sm max-w-[240px]"
+            >
+              <option value="">Fill from a template…</option>
+              {templates.map((t) => (
+                <optgroup key={t.id} label={t.name}>
+                  {t.exercises.map((ex) => (
+                    <option key={ex.id} value={ex.id}>
+                      {ex.exercise}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          )}
+        </div>
 
         <div className="grid grid-cols-2 gap-2.5 mb-3">
           <div>

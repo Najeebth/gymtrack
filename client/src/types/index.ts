@@ -60,6 +60,37 @@ export interface HealthData {
   };
 }
 
+// One account as the admin Users page sees it.
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: 'MEMBER' | 'ADMIN';
+  createdAt: string;
+  workoutCount: number;
+  templateCount: number;
+  lastWorkoutDate: string | null;
+}
+
+// A saved routine: an ordered list of exercises with their default sets.
+export interface TemplateExercise {
+  id: string;
+  muscleGroup: string;
+  exercise: string;
+  sets: { reps: number; weightKg: number }[];
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  exercises: TemplateExercise[];
+}
+
+// Template as edited in the builder form (inputs hold strings while typing).
+export interface TemplateDraft {
+  name: string;
+  exercises: { muscleGroup: string; exercise: string; sets: SetDraft[] }[];
+}
+
 export type SaveStatus = 'saving' | 'queued' | null;
 
 // Offline queue entry shapes (IndexedDB), as produced by offlineStore.ts
@@ -71,6 +102,9 @@ export type PendingOperation =
 export interface PendingRecord {
   localId: string;
   createdAt: number;
+  // Whose queue this entry belongs to. Entries queued before accounts
+  // existed have none.
+  userId?: string;
   type?: 'create' | 'update' | 'delete';
   payload?: WorkoutDraft;
   workoutId?: string;
