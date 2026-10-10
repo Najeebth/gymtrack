@@ -44,6 +44,7 @@ export interface UserTokenPayload {
   id: string;
   email: string;
   role: Role;
+  avatarUrl?: string | null;
 }
 
 export interface SetInput {

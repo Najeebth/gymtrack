@@ -3,6 +3,7 @@ import type { Workout, WorkoutDraft, TrafficLogEntry, HealthData } from '../type
 import { fetchWorkoutsApi, createWorkoutApi, deleteWorkoutApi, deleteSetApi, updateSetApi, createSetApi, updateWorkoutApi } from '../api/workouts';
 import { fetchTrafficApi, fetchHealthApi } from '../api/admin';
 import { loginApi, signupApi } from '../api/auth';
+import { fetchProfileApi, uploadAvatarApi, removeAvatarApi } from '../api/profile';
 import { setUnauthorizedHandler } from '../api/http';
 import { addPendingWorkout, addPendingOperation, getAllPending, removePending, countPending } from '../offlineStore';
 import type { PendingRecord } from '../types';
@@ -65,6 +66,9 @@ interface AppDataContextValue {
   role: Role | null;
   email: string | null;
   isAdmin: boolean;
+  avatarUrl: string | null;
+  uploadAvatar: (file: File) => Promise<string>;
+  removeAvatar: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   signup: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
@@ -107,6 +111,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [healthData, setHealthData] = useState<HealthData | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingCount, setPendingCount] = useState(0);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const tokenPayload = useMemo(() => decodeToken(authToken), [authToken]);
   const userId = tokenPayload?.id ?? null;
@@ -119,6 +124,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const endSession = useCallback((message?: string) => {
     clearStoredToken();
     setAuthToken(null);
+    setAvatarUrl(null);
     if (message) showToast(message, 'info');
   }, [showToast]);
 
@@ -198,14 +204,47 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [authToken]);
 
+  const loadProfile = useCallback(async () => {
+    if (!authToken) {
+      setAvatarUrl(null);
+      return;
+    }
+    try {
+      const data = await fetchProfileApi(authToken);
+      setAvatarUrl(data.avatarUrl);
+    } catch (err) {
+      console.warn('Could not load user profile avatar:', err);
+    }
+  }, [authToken]);
+
+  const uploadAvatar = useCallback(
+    async (file: File): Promise<string> => {
+      if (!authToken) throw new Error('Not authenticated');
+      const res = await uploadAvatarApi(authToken, file);
+      setAvatarUrl(res.avatarUrl);
+      showToast('Profile picture uploaded to cloud!', 'success');
+      return res.avatarUrl;
+    },
+    [authToken, showToast]
+  );
+
+  const removeAvatar = useCallback(async (): Promise<void> => {
+    if (!authToken) return;
+    await removeAvatarApi(authToken);
+    setAvatarUrl(null);
+    showToast('Profile picture removed', 'info');
+  }, [authToken, showToast]);
+
   useEffect(() => {
     if (authToken) {
       fetchWorkouts();
+      loadProfile();
     } else {
       setWorkouts([]);
       setWorkoutsByDate([]);
+      setAvatarUrl(null);
     }
-  }, [authToken, fetchWorkouts]);
+  }, [authToken, fetchWorkouts, loadProfile]);
 
   const replayUpdate = async (token: string, item: PendingRecord) => {
     const { workoutId, editDraft, originalSetIds } = item;
@@ -446,6 +485,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     role,
     email,
     isAdmin,
+    avatarUrl,
+    uploadAvatar,
+    removeAvatar,
     login,
     signup,
     logout,

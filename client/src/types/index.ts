@@ -69,6 +69,7 @@ export interface AdminUser {
   workoutCount: number;
   templateCount: number;
   lastWorkoutDate: string | null;
+  avatarUrl?: string | null;
 }
 
 // A saved routine: an ordered list of exercises with their default sets.

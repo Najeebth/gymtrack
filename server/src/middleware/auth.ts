@@ -25,7 +25,7 @@ async function authenticate(req: Request, res: Response): Promise<UserTokenPaylo
   }
 
   const user = await dbTrace('findUnique User (auth)', () =>
-    prisma.user.findUnique({ where: { id: String(payload.id) }, select: { id: true, email: true, role: true } })
+    prisma.user.findUnique({ where: { id: String(payload.id) }, select: { id: true, email: true, role: true, avatarUrl: true } })
   );
   if (!user) {
     res.status(401).json({ error: 'Unauthorized: Account no longer exists' });
