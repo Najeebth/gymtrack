@@ -111,3 +111,33 @@ export interface PendingRecord {
   editDraft?: WorkoutDraft;
   originalSetIds?: string[];
 }
+
+export interface Exercise {
+  id: string;
+  name: string;
+  muscleGroup: string;
+  equipment: string;
+  notes?: string | null;
+  isCustom: boolean;
+  userId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface ExerciseFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+  muscleGroup?: string;
+  equipment?: string;
+}

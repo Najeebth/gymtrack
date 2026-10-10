@@ -1,5 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Sparkles, ChevronDown, Check } from 'lucide-react';
+import { useAppData } from '../context/AppDataContext';
+import { fetchExercises } from '../api/exercises';
 import { COMMON_EXERCISES } from '../constants/exercises';
+import type { Exercise, MuscleGroup } from '../types';
 
 interface ExerciseAutocompleteProps {
   value: string;
@@ -10,51 +14,150 @@ interface ExerciseAutocompleteProps {
   required?: boolean;
 }
 
-// A themed exercise-name input with a suggestion dropdown (replaces the
-// native <datalist>, whose popup can't be styled and renders in the OS
-// theme instead of ours). Free text is still allowed — suggestions just
-// filter as you type and narrow down whenever the muscle group changes.
+interface SuggestionOption {
+  name: string;
+  equipment?: string;
+  isCustom?: boolean;
+}
+
 export default function ExerciseAutocomplete({
   value,
   onChange,
   muscleGroup,
   placeholder,
   className,
-  required
+  required,
 }: ExerciseAutocompleteProps) {
+  const { authToken } = useAppData();
   const [open, setOpen] = useState(false);
-  const options = (COMMON_EXERCISES[muscleGroup as keyof typeof COMMON_EXERCISES] || []).filter((opt) =>
-    opt.toLowerCase().includes((value || '').toLowerCase())
-  );
+  const [dbExercises, setDbExercises] = useState<Exercise[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Fetch exercises matching the current muscle group from database
+  useEffect(() => {
+    let active = true;
+    if (!authToken) return;
+
+    fetchExercises(authToken, {
+      muscleGroup: muscleGroup && muscleGroup !== 'All' ? muscleGroup : undefined,
+      limit: 50,
+    })
+      .then((res) => {
+        if (active) {
+          setDbExercises(res.data);
+        }
+      })
+      .catch(() => {
+        // Silently fallback to static list if offline
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authToken, muscleGroup]);
+
+  // Build full list of suggestions for this muscle group
+  const fullList: SuggestionOption[] =
+    dbExercises.length > 0
+      ? dbExercises.map((ex) => ({
+          name: ex.name,
+          equipment: ex.equipment,
+          isCustom: ex.isCustom,
+        }))
+      : (COMMON_EXERCISES[muscleGroup as MuscleGroup] || []).map((name) => ({ name }));
+
+  const lowerValue = (value || '').trim().toLowerCase();
+
+  // If value is empty OR matches an option completely, show the FULL list so the user can easily re-select
+  const isExactMatch = fullList.some((opt) => opt.name.toLowerCase() === lowerValue);
+
+  const filteredOptions =
+    !lowerValue || isExactMatch
+      ? fullList
+      : fullList.filter((opt) => opt.name.toLowerCase().includes(lowerValue));
 
   return (
-    <div className="relative">
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        placeholder={placeholder}
-        required={required}
-        autoComplete="off"
-        className={className}
-      />
-      {open && options.length > 0 && (
-        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-20 bg-white border border-brand-border rounded-lg shadow-lg max-h-[220px] overflow-y-auto">
-          {options.map((opt) => (
-            <div
-              key={opt}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                onChange(opt);
-                setOpen(false);
-              }}
-              className="px-3 py-2 text-sm text-brand-navy cursor-pointer hover:bg-orange-50"
-            >
-              {opt}
-            </div>
-          ))}
+    <div ref={containerRef} className="relative">
+      <div className="relative flex items-center">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onClick={() => setOpen(true)}
+          placeholder={placeholder}
+          required={required}
+          autoComplete="off"
+          className={`${className || ''} pr-8`}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setOpen((prev) => !prev)}
+          className="absolute right-2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer transition"
+          aria-label="Toggle exercise suggestions"
+        >
+          <ChevronDown
+            size={16}
+            className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          />
+        </button>
+      </div>
+
+      {open && filteredOptions.length > 0 && (
+        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-40 bg-white border border-brand-border rounded-lg shadow-xl max-h-[220px] overflow-y-auto divide-y divide-slate-100">
+          {filteredOptions.map((opt) => {
+            const isSelected = opt.name.toLowerCase() === lowerValue;
+            return (
+              <div
+                key={opt.name}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(opt.name);
+                  setOpen(false);
+                }}
+                className={`px-3 py-2 text-sm cursor-pointer flex items-center justify-between gap-2 transition ${
+                  isSelected
+                    ? 'bg-orange-50 text-brand-orange font-semibold'
+                    : 'text-slate-800 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {isSelected && <Check size={14} className="text-brand-orange shrink-0" />}
+                  <span>{opt.name}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {opt.equipment && (
+                    <span className="text-[11px] font-normal text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                      {opt.equipment}
+                    </span>
+                  )}
+                  {opt.isCustom && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                      <Sparkles size={9} /> Custom
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

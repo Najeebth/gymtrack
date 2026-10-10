@@ -191,7 +191,7 @@ export default function WorkoutsPage() {
             <label className={fieldLabel}>Muscle Group</label>
             <select
               value={formData.muscleGroup}
-              onChange={(e) => setFormData({ ...formData, muscleGroup: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, muscleGroup: e.target.value, exercise: '' })}
               className={fieldInput}
             >
               <option value="Chest">Chest</option>

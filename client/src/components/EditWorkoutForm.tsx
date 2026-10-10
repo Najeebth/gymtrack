@@ -46,7 +46,7 @@ export default function EditWorkoutForm({
           <label className={fieldLabel}>Muscle Group</label>
           <select
             value={editDraft.muscleGroup}
-            onChange={(e) => setEditDraft({ ...editDraft, muscleGroup: e.target.value })}
+            onChange={(e) => setEditDraft({ ...editDraft, muscleGroup: e.target.value, exercise: '' })}
             className={fieldInput}
           >
             <option value="Chest">Chest</option>

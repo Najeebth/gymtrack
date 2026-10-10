@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Dumbbell, CalendarDays, TrendingUp, ClipboardList, Activity, ShieldCheck, Map, Users } from 'lucide-react';
+import { Dumbbell, CalendarDays, TrendingUp, ClipboardList, Library, Activity, ShieldCheck, Map, Users } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 
 const navItemClasses = ({ isActive }: { isActive: boolean }) =>
@@ -16,6 +16,9 @@ export default function Sidebar() {
 
       <NavLink to="/workouts" className={navItemClasses}>
         <Dumbbell size={18} /> My Workouts
+      </NavLink>
+      <NavLink to="/exercises" className={navItemClasses}>
+        <Library size={18} /> Exercises
       </NavLink>
       <NavLink to="/by-date" className={navItemClasses}>
         <CalendarDays size={18} /> By Date

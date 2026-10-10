@@ -11,6 +11,7 @@ import WorkoutsPage from './pages/WorkoutsPage';
 import ByDatePage from './pages/ByDatePage';
 import ProgressPage from './pages/ProgressPage';
 import TemplatesPage from './pages/TemplatesPage';
+import ExercisesPage from './pages/ExercisesPage';
 import UsersPage from './pages/UsersPage';
 import LoginPage from './pages/LoginPage';
 import AdminPage from './pages/AdminPage';
@@ -35,6 +36,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <WorkoutsPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/exercises"
+                element={
+                  <RequireAuth>
+                    <ExercisesPage />
                   </RequireAuth>
                 }
               />

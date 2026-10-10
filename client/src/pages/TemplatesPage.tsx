@@ -279,7 +279,7 @@ function TemplateEditor({
                 <label className={fieldLabel}>Muscle group</label>
                 <select
                   value={exercise.muscleGroup}
-                  onChange={(e) => updateExercise(exerciseIndex, { muscleGroup: e.target.value })}
+                  onChange={(e) => updateExercise(exerciseIndex, { muscleGroup: e.target.value, exercise: '' })}
                   className={fieldInput}
                 >
                   {MUSCLE_GROUPS.map((group) => (

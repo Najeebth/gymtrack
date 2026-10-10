@@ -10,6 +10,14 @@ import {
   deleteWorkout,
 } from '../controllers/workouts.controller.js';
 
+import { validateBody } from '../middleware/validate.js';
+import {
+  createWorkoutSchema,
+  updateWorkoutSchema,
+  addSetsSchema,
+  updateSetSchema,
+} from '../schemas/workouts.schema.js';
+
 const router = Router();
 
 // Every workout lives under a user now, so every route below requires a
@@ -17,10 +25,10 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', listWorkouts);
-router.post('/', createWorkout);
-router.put('/:id', updateWorkout);
-router.put('/:id/sets/:setId', updateSet);
-router.post('/:id/sets', addSets);
+router.post('/', validateBody(createWorkoutSchema), createWorkout);
+router.put('/:id', validateBody(updateWorkoutSchema), updateWorkout);
+router.put('/:id/sets/:setId', validateBody(updateSetSchema), updateSet);
+router.post('/:id/sets', validateBody(addSetsSchema), addSets);
 router.delete('/:id/sets/:setId', deleteSet);
 router.delete('/:id', deleteWorkout);
 
