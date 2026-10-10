@@ -37,6 +37,7 @@ app.use(
       'http://127.0.0.1:5173',
       'http://localhost:3000',
       'http://127.0.0.1:3000',
+      'https://gymtrack-prdf.onrender.com',
     ],
     credentials: true,
     exposedHeaders: ['X-Trace-Id'], // allow browser to read telemetry trace header
