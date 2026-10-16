@@ -27,18 +27,32 @@ app.set('trust proxy', 1);
 // Protects against clickjacking, MIME sniffing, XSS, and strips X-Powered-By
 app.use(helmet());
 
-// --- Strict CORS ---
-// Only allow trusted frontend client origins
+// --- Strict CORS with dynamic support for localhost and Render domains ---
 app.use(
   cors({
-    origin: [
-      CLIENT_URL,
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'https://gymtrack-prdf.onrender.com',
-    ],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+
+      // Check allowed list or any onrender.com subdomain
+      const allowedOrigins = [
+        CLIENT_URL,
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'https://gymtrack-prdf.onrender.com',
+      ];
+
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.onrender.com')
+      ) {
+        return callback(null, true);
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
     exposedHeaders: ['X-Trace-Id'], // allow browser to read telemetry trace header
   })

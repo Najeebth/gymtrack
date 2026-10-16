@@ -19,12 +19,8 @@ function createRedisStore(prefix: string) {
   if (!redis) return undefined;
 
   return new RedisStore({
-    // ioredis sendCommand bridge
-    sendCommand: async (...args: string[]) => {
-      if (!isRedisConnected()) {
-        throw new Error('Redis not connected');
-      }
-      return (redis as any).call(...args);
+    sendCommand: (command: string, ...args: string[]) => {
+      return (redis as any).call(command, ...args);
     },
     prefix,
   });
