@@ -1,12 +1,18 @@
-import { useEffect, useState } from 'react';
-import { useAppData } from '../context/AppDataContext';
+import { useState } from 'react';
+import { useWorkoutsQuery } from '../hooks/useWorkoutsQuery';
 import WorkoutCard from '../components/WorkoutCard';
 import { getWeekdayName } from '../utils/date';
 import type { SaveStatus, Workout, WorkoutDraft } from '../types';
 
 export default function ByDatePage() {
-  const { workoutsByDate, fetchWorkoutsByDate, deleteWorkout, saveEditWorkout } = useAppData();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const {
+    workouts: workoutsByDate,
+    deleteWorkout,
+    saveEditWorkout,
+    isLoading,
+    isFetching,
+  } = useWorkoutsQuery(selectedDate);
 
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<WorkoutDraft>({
@@ -17,11 +23,6 @@ export default function ByDatePage() {
     sets: []
   });
   const [editSaveStatus, setEditSaveStatus] = useState<SaveStatus>(null);
-
-  useEffect(() => {
-    fetchWorkoutsByDate(selectedDate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
 
   const startEditWorkout = (w: Workout) => {
     setEditingWorkoutId(w.id);

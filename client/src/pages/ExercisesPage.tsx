@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Library,
@@ -15,7 +15,7 @@ import {
 import { useAppData } from '../context/AppDataContext';
 import { useToast } from '../context/ToastContext';
 import { useDebounce } from '../hooks/useDebounce';
-import { fetchExercises, createExercise, deleteExercise } from '../api/exercises';
+import { useExercisesQuery } from '../hooks/useExercisesQuery';
 import type { Exercise, MuscleGroup } from '../types';
 
 const MUSCLE_GROUPS: (MuscleGroup | 'All')[] = [
@@ -62,22 +62,34 @@ export default function ExercisesPage() {
     setSearchTerm(querySearch);
   }, [querySearch]);
 
-  // Data fetching state
-  const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   // Modal state for creating custom exercise
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newExercise, setNewExercise] = useState({
     name: '',
     muscleGroup: 'Chest',
     equipment: 'Barbell',
     notes: '',
   });
+
+  // Query hook: handles caching, pagination, filters, and invalidation
+  const {
+    exercises,
+    pagination,
+    isLoading: loading,
+    error,
+    createExercise: createExerciseMutation,
+    deleteExercise: deleteExerciseMutation,
+    isCreating: isSubmitting,
+  } = useExercisesQuery({
+    page: queryPage,
+    limit: 12,
+    search: querySearch,
+    muscleGroup: queryMuscle !== 'All' ? queryMuscle : undefined,
+    equipment: queryEquipment !== 'All' ? queryEquipment : undefined,
+  });
+
+  const totalPages = pagination?.totalPages ?? 1;
+  const totalCount = pagination?.total ?? 0;
 
   // Sync debounced search back into URL search params ONLY when search actually changed
   useEffect(() => {
@@ -95,35 +107,6 @@ export default function ExercisesPage() {
       }, { replace: true });
     }
   }, [debouncedSearch, searchParams, setSearchParams]);
-
-  // Load exercises from API
-  const loadExercises = useCallback(async () => {
-    if (!authToken) return;
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetchExercises(authToken, {
-        page: queryPage,
-        limit: 12,
-        search: querySearch,
-        muscleGroup: queryMuscle !== 'All' ? queryMuscle : undefined,
-        equipment: queryEquipment !== 'All' ? queryEquipment : undefined,
-      });
-
-      setExercises(res.data);
-      setTotalPages(res.pagination.totalPages);
-      setTotalCount(res.pagination.total);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load exercises');
-    } finally {
-      setLoading(false);
-    }
-  }, [authToken, queryPage, querySearch, queryMuscle, queryEquipment]);
-
-  useEffect(() => {
-    loadExercises();
-  }, [loadExercises]);
 
   const handleMuscleChange = (muscle: string) => {
     setSearchParams((prev) => {
@@ -161,23 +144,18 @@ export default function ExercisesPage() {
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      await createExercise(authToken, {
+      await createExerciseMutation({
         name: newExercise.name.trim(),
         muscleGroup: newExercise.muscleGroup,
         equipment: newExercise.equipment,
         notes: newExercise.notes.trim() || undefined,
       });
 
-      showToast(`Added custom exercise "${newExercise.name}"`, 'success');
       setIsModalOpen(false);
       setNewExercise({ name: '', muscleGroup: 'Chest', equipment: 'Barbell', notes: '' });
-      loadExercises();
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to create exercise', 'error');
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      // Toast notification handled inside mutation
     }
   };
 
@@ -186,11 +164,9 @@ export default function ExercisesPage() {
     if (!window.confirm(`Delete custom exercise "${exercise.name}"?`)) return;
 
     try {
-      await deleteExercise(authToken, exercise.id);
-      showToast(`Deleted "${exercise.name}"`, 'info');
-      loadExercises();
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to delete exercise', 'error');
+      await deleteExerciseMutation(exercise.id);
+    } catch {
+      // Toast notification handled inside mutation
     }
   };
 

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { prisma } from '../db/prisma.js';
 import { dbTrace } from '../lib/dbTrace.js';
+import { cacheAside, invalidateCachePattern } from '../lib/redis.js';
 import type { Prisma } from '@prisma/client';
 
 export async function listExercises(req: Request, res: Response): Promise<void> {
@@ -13,61 +14,68 @@ export async function listExercises(req: Request, res: Response): Promise<void> 
   const muscleGroup = typeof req.query.muscleGroup === 'string' ? req.query.muscleGroup.trim() : '';
   const equipment = typeof req.query.equipment === 'string' ? req.query.equipment.trim() : '';
 
-  const whereConditions: Prisma.ExerciseWhereInput[] = [
-    {
-      OR: [
-        { isCustom: false },
-        ...(userId ? [{ userId }] : []),
-      ],
-    },
-  ];
+  // Unique cache key per user and filter combination
+  const cacheKey = `exercises:${userId || 'public'}:${muscleGroup || 'all'}:${equipment || 'all'}:${search || 'none'}:p${page}:l${limit}`;
 
-  if (search) {
-    whereConditions.push({
-      name: { contains: search, mode: 'insensitive' },
-    });
-  }
-
-  if (muscleGroup && muscleGroup !== 'All') {
-    whereConditions.push({
-      muscleGroup: { equals: muscleGroup, mode: 'insensitive' },
-    });
-  }
-
-  if (equipment && equipment !== 'All') {
-    whereConditions.push({
-      equipment: { equals: equipment, mode: 'insensitive' },
-    });
-  }
-
-  const where: Prisma.ExerciseWhereInput = {
-    AND: whereConditions,
-  };
-
-  const [total, exercises] = await dbTrace('listExercises (paginated with filters)', () =>
-    prisma.$transaction([
-      prisma.exercise.count({ where }),
-      prisma.exercise.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: [
-          { isCustom: 'desc' },
-          { name: 'asc' },
+  const result = await cacheAside(cacheKey, 1800, async () => {
+    const whereConditions: Prisma.ExerciseWhereInput[] = [
+      {
+        OR: [
+          { isCustom: false },
+          ...(userId ? [{ userId }] : []),
         ],
-      }),
-    ])
-  );
+      },
+    ];
 
-  res.json({
-    data: exercises,
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit) || 1,
-    },
+    if (search) {
+      whereConditions.push({
+        name: { contains: search, mode: 'insensitive' },
+      });
+    }
+
+    if (muscleGroup && muscleGroup !== 'All') {
+      whereConditions.push({
+        muscleGroup: { equals: muscleGroup, mode: 'insensitive' },
+      });
+    }
+
+    if (equipment && equipment !== 'All') {
+      whereConditions.push({
+        equipment: { equals: equipment, mode: 'insensitive' },
+      });
+    }
+
+    const where: Prisma.ExerciseWhereInput = {
+      AND: whereConditions,
+    };
+
+    const [total, exercises] = await dbTrace('listExercises (paginated with filters)', () =>
+      prisma.$transaction([
+        prisma.exercise.count({ where }),
+        prisma.exercise.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: [
+            { isCustom: 'desc' },
+            { name: 'asc' },
+          ],
+        }),
+      ])
+    );
+
+    return {
+      data: exercises,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
   });
+
+  res.json(result);
 }
 
 export async function createExercise(req: Request, res: Response): Promise<void> {
@@ -125,6 +133,10 @@ export async function createExercise(req: Request, res: Response): Promise<void>
     })
   );
 
+  // Invalidate any cached exercise lists for this user & public lists
+  await invalidateCachePattern(`exercises:${userId}:*`);
+  await invalidateCachePattern('exercises:public:*');
+
   res.status(201).json(exercise);
 }
 
@@ -154,6 +166,10 @@ export async function deleteExercise(req: Request, res: Response): Promise<void>
   await dbTrace('delete custom exercise', () =>
     prisma.exercise.delete({ where: { id } })
   );
+
+  // Invalidate any cached exercise lists for this user & public lists
+  await invalidateCachePattern(`exercises:${userId}:*`);
+  await invalidateCachePattern('exercises:public:*');
 
   res.json({ message: 'Exercise deleted successfully' });
 }

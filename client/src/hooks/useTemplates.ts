@@ -1,57 +1,118 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppData } from '../context/AppDataContext';
 import { useToast } from '../context/ToastContext';
 import { deleteTemplateApi, fetchTemplatesApi, saveTemplateApi } from '../api/templates';
 import type { Template, TemplateDraft } from '../types';
 
-// The logged-in user's workout templates, plus save/delete. Loading problems
-// are reported through `loadError` so each page decides how loudly to show them.
+/**
+ * Modern TanStack Query hook for workout templates.
+ * Provides shared in-memory caching between TemplatesPage and WorkoutsPage,
+ * background revalidation, and optimistic updates for deletion and creation.
+ */
 export function useTemplates() {
   const { authToken } = useAppData();
   const { showToast } = useToast();
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const reload = useCallback(async () => {
-    if (!authToken) return;
+  const queryKey = ['templates'];
+
+  // 1. Intelligent cached fetch for templates
+  const {
+    data: templates = [],
+    isLoading: loading,
+    error,
+    refetch,
+  } = useQuery<Template[]>({
+    queryKey,
+    queryFn: async () => {
+      if (!authToken) return [];
+      return fetchTemplatesApi(authToken);
+    },
+    enabled: Boolean(authToken),
+  });
+
+  // User-friendly error message format matching previous behavior
+  const loadError = error
+    ? navigator.onLine
+      ? (error as Error).message
+      : "You're offline — templates will load when you reconnect."
+    : null;
+
+  // 2. Save mutation (handles both create and update)
+  const saveMutation = useMutation({
+    mutationFn: async ({ draft, id }: { draft: TemplateDraft; id?: string }) => {
+      if (!authToken) throw new Error('Not logged in');
+      return saveTemplateApi(authToken, draft, id);
+    },
+    onSuccess: (_saved, variables) => {
+      showToast(variables.id ? 'Template updated' : 'Template saved', 'success');
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  // 3. Optimistic Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!authToken) throw new Error('Not logged in');
+      await deleteTemplateApi(authToken, id);
+      return id;
+    },
+    onMutate: async (deletedId: string) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previousTemplates = queryClient.getQueryData<Template[]>(queryKey);
+
+      // Optimistically filter out the template
+      queryClient.setQueryData<Template[]>(queryKey, (old = []) =>
+        old.filter((t) => t.id !== deletedId)
+      );
+
+      return { previousTemplates };
+    },
+    onError: (_err, _deletedId, context) => {
+      if (context?.previousTemplates) {
+        queryClient.setQueryData(queryKey, context.previousTemplates);
+      }
+      showToast(
+        navigator.onLine ? 'Failed to delete template' : "You're offline — can't delete right now",
+        'error'
+      );
+    },
+    onSuccess: () => {
+      showToast('Template deleted', 'success');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+
+  // Preserve backwards-compatible helper signatures
+  const saveTemplate = async (draft: TemplateDraft, id?: string): Promise<string | null> => {
     try {
-      setTemplates(await fetchTemplatesApi(authToken));
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(navigator.onLine ? (err as Error).message : "You're offline — templates will load when you reconnect.");
-    } finally {
-      setLoading(false);
-    }
-  }, [authToken]);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
-
-  // Returns an error message, or null when the save went through.
-  const saveTemplate = useCallback(async (draft: TemplateDraft, id?: string): Promise<string | null> => {
-    if (!authToken) return 'Not logged in';
-    try {
-      const saved = await saveTemplateApi(authToken, draft, id);
-      setTemplates((prev) => (id ? prev.map((t) => (t.id === id ? saved : t)) : [...prev, saved]));
-      showToast(id ? 'Template updated' : 'Template saved', 'success');
+      await saveMutation.mutateAsync({ draft, id });
       return null;
     } catch (err) {
-      return navigator.onLine ? (err as Error).message : "You're offline — try again when you reconnect.";
+      return navigator.onLine
+        ? (err as Error).message
+        : "You're offline — try again when you reconnect.";
     }
-  }, [authToken, showToast]);
+  };
 
-  const removeTemplate = useCallback(async (id: string) => {
-    if (!authToken) return;
+  const removeTemplate = async (id: string) => {
     try {
-      await deleteTemplateApi(authToken, id);
-      setTemplates((prev) => prev.filter((t) => t.id !== id));
-      showToast('Template deleted', 'success');
-    } catch (err) {
-      showToast(navigator.onLine ? (err as Error).message : "You're offline — can't delete right now", 'error');
+      await deleteMutation.mutateAsync(id);
+    } catch {
+      // Error handled in onError callback
     }
-  }, [authToken, showToast]);
+  };
 
-  return { templates, loading, loadError, saveTemplate, removeTemplate };
+  return {
+    templates,
+    loading,
+    loadError,
+    saveTemplate,
+    removeTemplate,
+    refetch,
+    isSaving: saveMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+  };
 }

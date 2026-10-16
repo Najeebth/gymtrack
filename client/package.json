@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.104.3",
+    "@tanstack/react-query-devtools": "^5.104.3",
     "idb": "^8.0.3",
     "lucide-react": "^0.475.0",
     "motion": "^14.0.0",

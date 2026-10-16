@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { ClipboardList, Pencil, Play, Plus, Trash2, X } from 'lucide-react';
-import { useAppData } from '../context/AppDataContext';
 import { useTemplates } from '../hooks/useTemplates';
+import { useWorkoutsQuery } from '../hooks/useWorkoutsQuery';
 import ExerciseAutocomplete from '../components/ExerciseAutocomplete';
 import { COMMON_EXERCISES } from '../constants/exercises';
 import type { Template, TemplateDraft } from '../types';
@@ -89,7 +89,7 @@ export default function TemplatesPage() {
 }
 
 function TemplateCard({ template, onEdit, onDelete }: { template: Template; onEdit: () => void; onDelete: () => void }) {
-  const { logRoutine } = useAppData();
+  const { logRoutine } = useWorkoutsQuery();
   const [date, setDate] = useState(today);
   const [logging, setLogging] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);

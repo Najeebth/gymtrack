@@ -1,15 +1,7 @@
-import { useEffect } from 'react';
-import { useAppData } from '../context/AppDataContext';
+import { useTrafficQuery } from '../hooks/useAdminQuery';
 
 export default function TrafficPage() {
-  const { trafficLogs, fetchTraffic } = useAppData();
-
-  useEffect(() => {
-    fetchTraffic();
-    const interval = setInterval(fetchTraffic, 2500);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { data: trafficLogs = [] } = useTrafficQuery();
 
   return (
     <div>

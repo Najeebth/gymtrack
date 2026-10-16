@@ -1,9 +1,9 @@
 import { TrendingUp } from 'lucide-react';
-import { useAppData } from '../context/AppDataContext';
+import { useWorkoutsQuery } from '../hooks/useWorkoutsQuery';
 import ProgressChart from '../components/ProgressChart';
 
 export default function ProgressPage() {
-  const { workouts } = useAppData();
+  const { workouts } = useWorkoutsQuery();
 
   return (
     <div>

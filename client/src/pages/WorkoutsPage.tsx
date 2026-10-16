@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { PlusCircle, Plus, X, RefreshCw } from 'lucide-react';
-import { useAppData } from '../context/AppDataContext';
 import { useTemplates } from '../hooks/useTemplates';
+import { useWorkoutsQuery } from '../hooks/useWorkoutsQuery';
 import WorkoutCard from '../components/WorkoutCard';
 import ExerciseAutocomplete from '../components/ExerciseAutocomplete';
 import type { SaveStatus, SetDraft, Workout, WorkoutDraft } from '../types';
@@ -10,7 +10,15 @@ const fieldInput = 'w-full px-2.5 py-2 bg-slate-50 border border-slate-500 round
 const fieldLabel = 'text-xs text-brand-muted block mb-1';
 
 export default function WorkoutsPage() {
-  const { workouts, createWorkout, deleteWorkout, saveEditWorkout, fetchWorkouts } = useAppData();
+  const {
+    workouts,
+    isLoading,
+    isFetching,
+    createWorkout,
+    deleteWorkout,
+    saveEditWorkout,
+    refetch: fetchWorkouts,
+  } = useWorkoutsQuery();
   const { templates } = useTemplates();
 
   const [formData, setFormData] = useState<WorkoutDraft>({
@@ -282,12 +290,19 @@ export default function WorkoutsPage() {
       {/* Workout History List */}
       <div>
         <div className="flex justify-between items-center mb-3">
-          <h2 className="text-base font-semibold">Recent Exercises</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold">Recent Exercises</h2>
+            {isFetching && (
+              <span className="text-xs bg-brand-navy/10 text-brand-navy px-2 py-0.5 rounded-full animate-pulse">
+                Syncing…
+              </span>
+            )}
+          </div>
           <button
             onClick={() => fetchWorkouts()}
-            className="bg-transparent border-none text-brand-muted cursor-pointer flex items-center gap-1 text-sm"
+            className="bg-transparent border-none text-brand-muted cursor-pointer flex items-center gap-1 text-sm hover:text-brand-navy transition-colors"
           >
-            <RefreshCw size={14} /> Refresh
+            <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
           </button>
         </div>
 

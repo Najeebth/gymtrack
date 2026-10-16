@@ -1,46 +1,21 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Users } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
-import { useToast } from '../context/ToastContext';
-import { deleteUserApi, fetchUsersApi } from '../api/admin';
+import { useAdminUsersQuery } from '../hooks/useAdminQuery';
 import type { AdminUser } from '../types';
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
 export default function UsersPage() {
-  const { authToken, email: myEmail } = useAppData();
-  const { showToast } = useToast();
-  const [users, setUsers] = useState<AdminUser[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const { email: myEmail } = useAppData();
+  const { users, loadError, deleteUser, isDeleting } = useAdminUsersQuery();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!authToken) return;
-    try {
-      setUsers(await fetchUsersApi(authToken));
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(navigator.onLine ? (err as Error).message : "You're offline — reconnect to see accounts.");
-    }
-  }, [authToken]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const handleDelete = async (user: AdminUser) => {
-    if (!authToken) return;
-    setDeletingId(user.id);
     try {
-      await deleteUserApi(authToken, user.id);
-      setUsers((prev) => (prev ? prev.filter((u) => u.id !== user.id) : prev));
-      showToast(`Deleted ${user.email}`, 'success');
-    } catch (err) {
-      showToast((err as Error).message, 'error');
+      await deleteUser(user.id);
     } finally {
-      setDeletingId(null);
       setConfirmingId(null);
     }
   };

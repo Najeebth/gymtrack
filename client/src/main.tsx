@@ -4,9 +4,26 @@ import App from './App'
 import './index.css'
 import { registerSW } from 'virtual:pwa-register'
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 2, // 2 minutes: queries remain fresh for 2 min before background revalidation
+      gcTime: 1000 * 60 * 10,   // 10 minutes: keep inactive data in cache
+      refetchOnWindowFocus: true, // Auto-refetch when user focuses back on the tab
+      retry: 1,                 // Retry failed queries once before showing error
+    },
+  },
+})
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <QueryClientProvider client={queryClient}>
+      <App />
+      <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />
+    </QueryClientProvider>
   </React.StrictMode>,
 )
 

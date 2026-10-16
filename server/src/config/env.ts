@@ -12,3 +12,4 @@ export const B2_SECRET_ACCESS_KEY = process.env.B2_SECRET_ACCESS_KEY || '';
 export const B2_REGION = process.env.B2_REGION || 'us-east-005';
 export const B2_BUCKET = process.env.B2_BUCKET || '';
 export const B2_ENDPOINT = process.env.B2_ENDPOINT || 'https://s3.us-east-005.backblazeb2.com';
+export const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379';

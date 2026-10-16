@@ -1,14 +1,8 @@
-import { useEffect } from 'react';
 import { ShieldCheck } from 'lucide-react';
-import { useAppData } from '../context/AppDataContext';
+import { useHealthQuery } from '../hooks/useAdminQuery';
 
 export default function HealthPage() {
-  const { healthData, fetchHealth } = useAppData();
-
-  useEffect(() => {
-    fetchHealth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { data: healthData, isLoading } = useHealthQuery();
 
   return (
     <div className="bg-white p-5 rounded-xl border border-brand-border">

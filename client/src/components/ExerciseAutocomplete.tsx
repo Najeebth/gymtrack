@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Sparkles, ChevronDown, Check } from 'lucide-react';
-import { useAppData } from '../context/AppDataContext';
-import { fetchExercises } from '../api/exercises';
+import { useExercisesQuery } from '../hooks/useExercisesQuery';
 import { COMMON_EXERCISES } from '../constants/exercises';
 import type { Exercise, MuscleGroup } from '../types';
 
@@ -28,9 +27,7 @@ export default function ExerciseAutocomplete({
   className,
   required,
 }: ExerciseAutocompleteProps) {
-  const { authToken } = useAppData();
   const [open, setOpen] = useState(false);
-  const [dbExercises, setDbExercises] = useState<Exercise[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -46,28 +43,11 @@ export default function ExerciseAutocomplete({
     };
   }, []);
 
-  // Fetch exercises matching the current muscle group from database
-  useEffect(() => {
-    let active = true;
-    if (!authToken) return;
-
-    fetchExercises(authToken, {
-      muscleGroup: muscleGroup && muscleGroup !== 'All' ? muscleGroup : undefined,
-      limit: 50,
-    })
-      .then((res) => {
-        if (active) {
-          setDbExercises(res.data);
-        }
-      })
-      .catch(() => {
-        // Silently fallback to static list if offline
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [authToken, muscleGroup]);
+  // Fetch exercises matching the current muscle group from cached query
+  const { exercises: dbExercises } = useExercisesQuery({
+    muscleGroup: muscleGroup && muscleGroup !== 'All' ? muscleGroup : undefined,
+    limit: 50,
+  });
 
   // Build full list of suggestions for this muscle group
   const fullList: SuggestionOption[] =
