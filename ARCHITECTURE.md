@@ -32,7 +32,8 @@ graph TD
         Router["Express Routers"]
         AuthMiddleware["JWT Authentication & RBAC Guard"]
         Validation["Zod Request Validation"]
-        Controllers["Controllers (Workouts, Exercises, Auth, Admin)"]
+        Controllers["Controllers (HTTP Adapters)"]
+        Services["Services (WorkoutsService, ExercisesService)"]
     end
 
     subgraph Data ["Data & Storage Layer"]
@@ -51,9 +52,10 @@ graph TD
     Router --> AuthMiddleware
     AuthMiddleware --> Validation
     Validation --> Controllers
+    Controllers --> Services
 
-    Controllers -->|Check / Invalidate| RedisCache
-    Controllers -->|dbTrace wrapper| PrismaORM
+    Services -->|Check / Invalidate| RedisCache
+    Services -->|dbTrace wrapper| PrismaORM
     PrismaORM --> Postgres
     Controllers -->|AWS SDK v3 / Presigned URLs| B2
 ```
@@ -67,7 +69,7 @@ graph TD
 A scalable enterprise system enforces strict boundaries between layers:
 
 ```
-Request ──> [Routes] ──> [Middleware] ──> [Controllers] ──> [Services / Libs] ──> [Prisma / Redis]
+Request ──> [Routes] ──> [Middleware] ──> [Controllers] ──> [Services] ──> [Data Access / Prisma / Redis]
 ```
 
 1. **Routes (`src/routes/`)**:
@@ -76,8 +78,11 @@ Request ──> [Routes] ──> [Middleware] ──> [Controllers] ──> [Ser
 2. **Middleware (`src/middleware/`)**:
    - Cross-cutting concerns: Authentication ([`auth.ts`](file:///d:/gymtrack/server/src/middleware/auth.ts)), schema validation ([`validate.ts`](file:///d:/gymtrack/server/src/middleware/validate.ts)), telemetry ([`tracker.ts`](file:///d:/gymtrack/server/src/middleware/tracker.ts)), security headers ([`helmet`](https://helmetjs.github.io/)).
 3. **Controllers (`src/controllers/`)**:
-   - HTTP transport layer: Parses queries/body, calls caching/data operations, sets status codes, formats JSON responses.
-4. **Data Access & Storage (`src/db/`, `src/lib/`)**:
+   - HTTP transport layer: Pure adapters that extract request inputs (`params`, `body`, `query`), invoke domain services, and translate service outputs into standard HTTP status codes and JSON envelopes.
+4. **Services (`src/services/`)**:
+   - Pure business logic & orchestration layer: Independent of Express `req`/`res`. Manages data transactions, ownership checks, caching strategies, and data transformations.
+   - Example: [`workouts.service.ts`](file:///d:/gymtrack/server/src/services/workouts.service.ts), [`exercises.service.ts`](file:///d:/gymtrack/server/src/services/exercises.service.ts).
+5. **Data Access & Storage (`src/db/`, `src/lib/`)**:
    - Database client abstraction ([`prisma.ts`](file:///d:/gymtrack/server/src/db/prisma.ts)).
    - Distributed cache wrapper with graceful degradation ([`redis.ts`](file:///d:/gymtrack/server/src/lib/redis.ts)).
    - S3-compatible cloud object storage ([`storage.ts`](file:///d:/gymtrack/server/src/lib/storage.ts)).

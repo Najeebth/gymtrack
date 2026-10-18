@@ -1,81 +1,28 @@
 import type { Request, Response } from 'express';
-import { prisma } from '../db/prisma.js';
-import { dbTrace } from '../lib/dbTrace.js';
-import { cacheAside, invalidateCachePattern } from '../lib/redis.js';
-import type { Prisma } from '@prisma/client';
+import { exercisesService } from '../services/exercises.service.js';
 
 export async function listExercises(req: Request, res: Response): Promise<void> {
   const userId = req.user?.id;
-  const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
-  const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit || '12'), 10) || 12));
-  const skip = (page - 1) * limit;
+  const page = parseInt(String(req.query.page || '1'), 10) || 1;
+  const limit = parseInt(String(req.query.limit || '12'), 10) || 12;
+  const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+  const muscleGroup = typeof req.query.muscleGroup === 'string' ? req.query.muscleGroup : undefined;
+  const equipment = typeof req.query.equipment === 'string' ? req.query.equipment : undefined;
 
-  const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
-  const muscleGroup = typeof req.query.muscleGroup === 'string' ? req.query.muscleGroup.trim() : '';
-  const equipment = typeof req.query.equipment === 'string' ? req.query.equipment.trim() : '';
-
-  // Unique cache key per user and filter combination
-  const cacheKey = `exercises:${userId || 'public'}:${muscleGroup || 'all'}:${equipment || 'all'}:${search || 'none'}:p${page}:l${limit}`;
-
-  const result = await cacheAside(cacheKey, 1800, async () => {
-    const whereConditions: Prisma.ExerciseWhereInput[] = [
-      {
-        OR: [
-          { isCustom: false },
-          ...(userId ? [{ userId }] : []),
-        ],
-      },
-    ];
-
-    if (search) {
-      whereConditions.push({
-        name: { contains: search, mode: 'insensitive' },
-      });
-    }
-
-    if (muscleGroup && muscleGroup !== 'All') {
-      whereConditions.push({
-        muscleGroup: { equals: muscleGroup, mode: 'insensitive' },
-      });
-    }
-
-    if (equipment && equipment !== 'All') {
-      whereConditions.push({
-        equipment: { equals: equipment, mode: 'insensitive' },
-      });
-    }
-
-    const where: Prisma.ExerciseWhereInput = {
-      AND: whereConditions,
-    };
-
-    const [total, exercises] = await dbTrace('listExercises (paginated with filters)', () =>
-      prisma.$transaction([
-        prisma.exercise.count({ where }),
-        prisma.exercise.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: [
-            { isCustom: 'desc' },
-            { name: 'asc' },
-          ],
-        }),
-      ])
-    );
-
-    return {
-      data: exercises,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit) || 1,
-      },
-    };
-  });
-
-  res.json(result);
+  try {
+    const result = await exercisesService.listExercises({
+      userId,
+      page,
+      limit,
+      search,
+      muscleGroup,
+      equipment,
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('Error in listExercises:', err);
+    res.status(500).json({ error: 'Failed to retrieve exercises' });
+  }
 }
 
 export async function createExercise(req: Request, res: Response): Promise<void> {
@@ -97,47 +44,24 @@ export async function createExercise(req: Request, res: Response): Promise<void>
     return;
   }
 
-  const trimmedName = name.trim();
-  const trimmedMuscle = muscleGroup.trim();
-  const trimmedEquipment = typeof equipment === 'string' && equipment.trim() ? equipment.trim() : 'Other';
-  const trimmedNotes = typeof notes === 'string' && notes.trim() ? notes.trim() : null;
+  try {
+    const result = await exercisesService.createCustomExercise(userId, {
+      name,
+      muscleGroup,
+      equipment,
+      notes,
+    });
 
-  // Check for duplicate custom exercise for this user
-  const existing = await dbTrace('check existing custom exercise', () =>
-    prisma.exercise.findFirst({
-      where: {
-        name: { equals: trimmedName, mode: 'insensitive' },
-        OR: [
-          { isCustom: false },
-          { userId },
-        ],
-      },
-    })
-  );
+    if (result.status === 'DUPLICATE') {
+      res.status(409).json({ error: 'An exercise with this name already exists' });
+      return;
+    }
 
-  if (existing) {
-    res.status(409).json({ error: 'An exercise with this name already exists' });
-    return;
+    res.status(201).json(result.data);
+  } catch (err) {
+    console.error('Error creating custom exercise:', err);
+    res.status(500).json({ error: 'Failed to create exercise' });
   }
-
-  const exercise = await dbTrace('create custom exercise', () =>
-    prisma.exercise.create({
-      data: {
-        name: trimmedName,
-        muscleGroup: trimmedMuscle,
-        equipment: trimmedEquipment,
-        notes: trimmedNotes,
-        isCustom: true,
-        userId,
-      },
-    })
-  );
-
-  // Invalidate any cached exercise lists for this user & public lists
-  await invalidateCachePattern(`exercises:${userId}:*`);
-  await invalidateCachePattern('exercises:public:*');
-
-  res.status(201).json(exercise);
 }
 
 export async function deleteExercise(req: Request, res: Response): Promise<void> {
@@ -149,28 +73,22 @@ export async function deleteExercise(req: Request, res: Response): Promise<void>
     return;
   }
 
-  const exercise = await dbTrace('find exercise for delete', () =>
-    prisma.exercise.findUnique({ where: { id } })
-  );
+  try {
+    const result = await exercisesService.deleteCustomExercise(id, userId);
 
-  if (!exercise) {
-    res.status(404).json({ error: 'Exercise not found' });
-    return;
+    if (result.status === 'NOT_FOUND') {
+      res.status(404).json({ error: 'Exercise not found' });
+      return;
+    }
+
+    if (result.status === 'FORBIDDEN') {
+      res.status(403).json({ error: 'Forbidden: You can only delete your own custom exercises' });
+      return;
+    }
+
+    res.json({ message: 'Exercise deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting exercise:', err);
+    res.status(500).json({ error: 'Failed to delete exercise' });
   }
-
-  if (!exercise.isCustom || exercise.userId !== userId) {
-    res.status(403).json({ error: 'Forbidden: You can only delete your own custom exercises' });
-    return;
-  }
-
-  await dbTrace('delete custom exercise', () =>
-    prisma.exercise.delete({ where: { id } })
-  );
-
-  // Invalidate any cached exercise lists for this user & public lists
-  await invalidateCachePattern(`exercises:${userId}:*`);
-  await invalidateCachePattern('exercises:public:*');
-
-  res.json({ message: 'Exercise deleted successfully' });
 }
-

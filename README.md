@@ -49,7 +49,8 @@ gymtrack/
     │   └── seed.js          # Default exercise database seeder
     ├── src/
     │   ├── config/          # Environment variable parser & validation
-    │   ├── controllers/     # Route business handlers (workouts, exercises, auth, etc.)
+    │   ├── controllers/     # Route HTTP adapters (workouts, exercises, auth, etc.)
+    │   ├── services/        # Pure domain business logic (workouts, exercises)
     │   ├── db/              # Prisma client singleton
     │   ├── lib/             # Shared libraries (redis.ts, storage.ts, dbTrace.ts, etc.)
     │   ├── middleware/      # Auth, error handling, rate limiting, and telemetry
@@ -107,12 +108,11 @@ Frontend runs by default at `http://localhost:5173`.
 
 ## 🗺️ Master Plan & Future Development Roadmap
 
-### Phase 1: Stabilization & Code Quality (Current Immediate Focus)
-- [ ] **Fix CI Workflow**: Update `.github/workflows/ci.yml` from `node --check src/server.js` to `npm run typecheck` (`tsc --noEmit`) to properly validate TypeScript.
-- [ ] **Extract Service Layer**: Refactor heavy controller logic (e.g. `workouts.controller.ts`, `exercises.controller.ts`) into pure service classes/functions (`workout.service.ts`) to decouple HTTP transport from business logic.
-- [ ] **Automated Testing Suite**:
-  - Backend: Vitest + Supertest for integration testing of API endpoints and cache hits/misses.
-  - Frontend: React Testing Library + MSW (Mock Service Worker) for testing offline transitions and optimistic mutations.
+### Phase 1: Stabilization & Code Quality (Completed ✅)
+- [x] **Fix CI Workflow**: Updated `.github/workflows/ci.yml` from `node --check src/server.js` to `npm run typecheck` (`tsc --noEmit`) and Node 22 test runners.
+- [x] **Extract Service Layer**: Refactored controllers into lightweight HTTP adapters and created pure domain services (`workouts.service.ts`, `exercises.service.ts`).
+- [x] **Automated Testing Suite**: Native zero-dependency test runner (`node:test`) covering schemas, auth guards, Redis caching, telemetry ring buffers, and workout normalization (26 backend + 2 frontend tests).
+- [x] **Pre-Push Quality Gate**: Git pre-push hook ([`.githooks/pre-push`](.githooks/pre-push)) verifying typechecks, test suites, and frontend build before any code leaves the developer machine.
 
 ### Phase 2: Core Domain & Analytics Enhancements
 - [ ] **1RM (One Rep Max) & Volume Analytics**:
