@@ -9,3 +9,12 @@ export const COMMON_EXERCISES: Record<MuscleGroup, string[]> = {
   Arms: ['Barbell Curl', 'Hammer Curl', 'Tricep Pushdown', 'Skull Crusher', 'Preacher Curl', 'Close-Grip Bench Press'],
   Core: ['Plank', 'Hanging Leg Raise', 'Cable Crunch', 'Russian Twist', 'Ab Wheel Rollout', 'Sit-Up']
 };
+
+export const EQUIPMENT_OPTIONS = [
+  'Barbell',
+  'Dumbbell',
+  'Cable',
+  'Machine',
+  'Bodyweight',
+  'Other',
+] as const;

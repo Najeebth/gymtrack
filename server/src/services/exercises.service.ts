@@ -168,3 +168,4 @@ export class ExercisesService {
 }
 
 export const exercisesService = new ExercisesService();
+

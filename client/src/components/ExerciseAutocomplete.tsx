@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, ChevronDown, Check } from 'lucide-react';
+import { Sparkles, ChevronDown, Check, Plus } from 'lucide-react';
 import { useExercisesQuery } from '../hooks/useExercisesQuery';
 import { COMMON_EXERCISES } from '../constants/exercises';
 import type { Exercise, MuscleGroup } from '../types';
@@ -11,6 +11,7 @@ interface ExerciseAutocompleteProps {
   placeholder?: string;
   className?: string;
   required?: boolean;
+  onQuickAdd?: (currentValue: string) => void;
 }
 
 interface SuggestionOption {
@@ -26,6 +27,7 @@ export default function ExerciseAutocomplete({
   placeholder,
   className,
   required,
+  onQuickAdd,
 }: ExerciseAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,43 +103,78 @@ export default function ExerciseAutocomplete({
       </div>
 
       {open && filteredOptions.length > 0 && (
-        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-40 bg-white border border-brand-border rounded-lg shadow-xl max-h-[220px] overflow-y-auto divide-y divide-slate-100">
-          {filteredOptions.map((opt) => {
-            const isSelected = opt.name.toLowerCase() === lowerValue;
-            return (
-              <div
-                key={opt.name}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onChange(opt.name);
-                  setOpen(false);
-                }}
-                className={`px-3 py-2 text-sm cursor-pointer flex items-center justify-between gap-2 transition ${
-                  isSelected
-                    ? 'bg-orange-50 text-brand-orange font-semibold'
-                    : 'text-slate-800 hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {isSelected && <Check size={14} className="text-brand-orange shrink-0" />}
-                  <span>{opt.name}</span>
-                </div>
+        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-40 bg-white border border-brand-border rounded-lg shadow-xl max-h-[240px] overflow-y-auto divide-y divide-slate-100">
+          <div>
+            {filteredOptions.map((opt) => {
+              const isSelected = opt.name.toLowerCase() === lowerValue;
+              return (
+                <div
+                  key={opt.name}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange(opt.name);
+                    setOpen(false);
+                  }}
+                  className={`px-3 py-2 text-sm cursor-pointer flex items-center justify-between gap-2 transition ${
+                    isSelected
+                      ? 'bg-orange-50 text-brand-orange font-semibold'
+                      : 'text-slate-800 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {isSelected && <Check size={14} className="text-brand-orange shrink-0" />}
+                    <span>{opt.name}</span>
+                  </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {opt.equipment && (
-                    <span className="text-[11px] font-normal text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                      {opt.equipment}
-                    </span>
-                  )}
-                  {opt.isCustom && (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                      <Sparkles size={9} /> Custom
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {opt.equipment && (
+                      <span className="text-[11px] font-normal text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                        {opt.equipment}
+                      </span>
+                    )}
+                    {opt.isCustom && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                        <Sparkles size={9} /> Custom
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          {onQuickAdd && (
+            <div
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onQuickAdd(value);
+                setOpen(false);
+              }}
+              className="p-2.5 bg-orange-50/80 hover:bg-orange-100/90 text-brand-orange text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition sticky bottom-0 border-t border-brand-border/60"
+            >
+              <Plus size={13} />
+              <span>Create new exercise{value.trim() ? ` "${value.trim()}"` : ''}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {open && filteredOptions.length === 0 && (
+        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-40 bg-white border border-brand-border rounded-lg shadow-xl p-3.5 text-center">
+          <p className="text-xs text-brand-muted mb-2.5">No exercises found</p>
+          {onQuickAdd && (
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onQuickAdd(value);
+                setOpen(false);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-brand-orange text-white text-xs font-semibold hover:bg-brand-orange-hover transition shadow-sm cursor-pointer"
+            >
+              <Plus size={13} /> Create "{value || 'New exercise'}"
+            </button>
+          )}
         </div>
       )}
     </div>

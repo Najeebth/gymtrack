@@ -191,3 +191,4 @@ export class WorkoutsService {
 }
 
 export const workoutsService = new WorkoutsService();
+

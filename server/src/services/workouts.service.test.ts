@@ -33,3 +33,4 @@ describe('WorkoutsService - Core Logic', () => {
     assert.deepEqual(normalizeSets(undefined as any), []);
   });
 });
+

@@ -2,8 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { ClipboardList, Pencil, Play, Plus, Trash2, X } from 'lucide-react';
 import { useTemplates } from '../hooks/useTemplates';
 import { useWorkoutsQuery } from '../hooks/useWorkoutsQuery';
+import { useExercisesQuery } from '../hooks/useExercisesQuery';
 import ExerciseAutocomplete from '../components/ExerciseAutocomplete';
-import { COMMON_EXERCISES } from '../constants/exercises';
+import { COMMON_EXERCISES, EQUIPMENT_OPTIONS } from '../constants/exercises';
 import type { Template, TemplateDraft } from '../types';
 
 const MUSCLE_GROUPS = Object.keys(COMMON_EXERCISES);
@@ -202,6 +203,48 @@ function TemplateEditor({
   const [draft, setDraft] = useState<TemplateDraft>(initial);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const { createExercise: createExerciseMutation, isCreating } = useExercisesQuery();
+
+  const [quickAddModal, setQuickAddModal] = useState<{
+    exerciseIndex: number;
+    name: string;
+    muscleGroup: string;
+    equipment: string;
+    notes: string;
+  } | null>(null);
+
+  const handleOpenQuickAdd = (exerciseIndex: number, currentMuscle: string, currentName = '') => {
+    setQuickAddModal({
+      exerciseIndex,
+      name: currentName,
+      muscleGroup: currentMuscle || 'Chest',
+      equipment: 'Barbell',
+      notes: '',
+    });
+  };
+
+  const handleSaveQuickExercise = (e: FormEvent) => {
+    e.preventDefault();
+    if (!quickAddModal || !quickAddModal.name.trim()) return;
+
+    createExerciseMutation(
+      {
+        name: quickAddModal.name.trim(),
+        muscleGroup: quickAddModal.muscleGroup,
+        equipment: quickAddModal.equipment,
+        notes: quickAddModal.notes.trim() || undefined,
+      },
+      {
+        onSuccess: (createdEx) => {
+          updateExercise(quickAddModal.exerciseIndex, {
+            muscleGroup: createdEx.muscleGroup,
+            exercise: createdEx.name,
+          });
+          setQuickAddModal(null);
+        },
+      }
+    );
+  };
 
   const updateExercise = (index: number, change: Partial<TemplateDraft['exercises'][number]>) =>
     setDraft((prev) => ({
@@ -290,13 +333,24 @@ function TemplateEditor({
                 </select>
               </div>
               <div>
-                <label className={fieldLabel}>Exercise name</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs text-brand-muted block">Exercise name</label>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQuickAdd(exerciseIndex, exercise.muscleGroup, exercise.exercise)}
+                    className="text-xs text-brand-orange hover:text-brand-orange-hover font-semibold flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition"
+                    title="Create a new custom exercise"
+                  >
+                    <Plus size={12} /> New exercise
+                  </button>
+                </div>
                 <ExerciseAutocomplete
                   value={exercise.exercise}
                   onChange={(value) => updateExercise(exerciseIndex, { exercise: value })}
                   muscleGroup={exercise.muscleGroup}
                   placeholder="e.g. Barbell Bench Press"
                   required
+                  onQuickAdd={(val) => handleOpenQuickAdd(exerciseIndex, exercise.muscleGroup, val)}
                   className={fieldInput}
                 />
               </div>
@@ -380,6 +434,114 @@ function TemplateEditor({
           Cancel
         </button>
       </div>
+
+      {quickAddModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4"
+        >
+          <div className="bg-white rounded-xl shadow-2xl border border-brand-border max-w-md w-full p-5 relative">
+            <div className="flex items-center justify-between pb-3 border-b border-brand-border mb-4">
+              <h3 className="text-base font-bold text-brand-navy flex items-center gap-2">
+                <Plus size={18} className="text-brand-orange" /> Create New Exercise
+              </h3>
+              <button
+                type="button"
+                onClick={() => setQuickAddModal(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-md transition cursor-pointer"
+                aria-label="Close dialog"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3.5">
+              <div>
+                <label className={fieldLabel}>Exercise Name *</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="e.g. Bulgarian Split Squat"
+                  value={quickAddModal.name}
+                  onChange={(e) =>
+                    setQuickAddModal({ ...quickAddModal, name: e.target.value })
+                  }
+                  className={fieldInput}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={fieldLabel}>Muscle Group *</label>
+                  <select
+                    value={quickAddModal.muscleGroup}
+                    onChange={(e) =>
+                      setQuickAddModal({ ...quickAddModal, muscleGroup: e.target.value })
+                    }
+                    className={fieldInput}
+                  >
+                    {MUSCLE_GROUPS.map((grp) => (
+                      <option key={grp} value={grp}>
+                        {grp}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className={fieldLabel}>Equipment</label>
+                  <select
+                    value={quickAddModal.equipment}
+                    onChange={(e) =>
+                      setQuickAddModal({ ...quickAddModal, equipment: e.target.value })
+                    }
+                    className={fieldInput}
+                  >
+                    {EQUIPMENT_OPTIONS.map((eq) => (
+                      <option key={eq} value={eq}>
+                        {eq}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className={fieldLabel}>Notes (optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Keep torso upright"
+                  value={quickAddModal.notes}
+                  onChange={(e) =>
+                    setQuickAddModal({ ...quickAddModal, notes: e.target.value })
+                  }
+                  className={fieldInput}
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2 border-t border-brand-border mt-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickAddModal(null)}
+                  className="px-3.5 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveQuickExercise}
+                  disabled={isCreating || !quickAddModal.name.trim()}
+                  className="px-4 py-2 rounded-lg bg-brand-orange text-white text-sm font-semibold hover:bg-brand-orange-hover disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  {isCreating ? 'Saving...' : 'Create & Use'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
