@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: './server/package-lock.json'
 
@@ -29,6 +29,9 @@ jobs:
 
       - name: Typecheck Backend Code
         run: npm run typecheck
+
+      - name: Run Backend Tests
+        run: npm test
 
   # 2. Build and Validate Frontend
   frontend-build:
@@ -43,12 +46,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: './client/package-lock.json'
 
       - name: Install Frontend Dependencies
         run: npm ci
+
+      - name: Run Frontend Tests
+        run: npm test
 
       - name: Build React Static Bundle (Vite)
         run: npm run build

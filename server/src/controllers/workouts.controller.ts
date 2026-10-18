@@ -5,7 +5,7 @@ import type { NormalizedSet, SetInput } from '../types/index.js';
 
 // Normalizes a raw sets payload (array of {reps, weightKg}) into
 // Prisma nested-create rows with sequential setNumbers.
-function normalizeSets(rawSets: SetInput[]): NormalizedSet[] {
+export function normalizeSets(rawSets: SetInput[]): NormalizedSet[] {
   if (!Array.isArray(rawSets) || rawSets.length === 0) return [];
   return rawSets.map((s, idx) => ({
     setNumber: idx + 1,
