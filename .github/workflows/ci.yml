@@ -27,8 +27,8 @@ jobs:
       - name: Install Backend Dependencies
         run: npm ci
 
-      - name: Check Backend Syntax & Start Dry-run
-        run: node --check src/server.js
+      - name: Typecheck Backend Code
+        run: npm run typecheck
 
   # 2. Build and Validate Frontend
   frontend-build:
