@@ -21,10 +21,9 @@ describe('Traffic & Telemetry In-Memory Log Buffer', () => {
     assert.equal(getLastDbQuery(), null);
 
     const sampleQuery: DbQueryInfo = {
-      model: 'Workout',
-      action: 'findMany',
-      args: { userId: 'user-123' },
-      duration: 14.5,
+      query: 'findMany Workout (ordered by createdAt desc)',
+      durationMs: 14.5,
+      timestamp: '2026-10-18T10:00:00.000Z',
     };
 
     recordDbQuery(sampleQuery);
@@ -38,9 +37,10 @@ describe('Traffic & Telemetry In-Memory Log Buffer', () => {
     const entry1: TrafficLogEntry = {
       id: 'trace-1',
       method: 'GET',
-      path: '/api/workouts',
+      url: '/api/workouts',
       status: 200,
-      duration: 12,
+      httpDurationMs: 12,
+      dbQuery: null,
       ip: '127.0.0.1',
       userAgent: 'Mozilla/5.0',
       timestamp: '2026-10-18T10:00:00Z',
@@ -49,9 +49,10 @@ describe('Traffic & Telemetry In-Memory Log Buffer', () => {
     const entry2: TrafficLogEntry = {
       id: 'trace-2',
       method: 'POST',
-      path: '/api/workouts',
+      url: '/api/workouts',
       status: 201,
-      duration: 25,
+      httpDurationMs: 25,
+      dbQuery: null,
       ip: '127.0.0.1',
       userAgent: 'Mozilla/5.0',
       timestamp: '2026-10-18T10:01:00Z',
@@ -71,9 +72,10 @@ describe('Traffic & Telemetry In-Memory Log Buffer', () => {
       addRequestLog({
         id: `trace-${i}`,
         method: 'GET',
-        path: `/api/test/${i}`,
+        url: `/api/test/${i}`,
         status: 200,
-        duration: i,
+        httpDurationMs: i,
+        dbQuery: null,
         ip: '127.0.0.1',
         userAgent: 'test',
         timestamp: new Date().toISOString(),
@@ -86,4 +88,3 @@ describe('Traffic & Telemetry In-Memory Log Buffer', () => {
     assert.equal(logs[49].id, 'trace-11'); // oldest retained (1-10 were dropped)
   });
 });
-
