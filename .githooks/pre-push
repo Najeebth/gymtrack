@@ -1,0 +1,37 @@
+#!/bin/sh
+# Git pre-push hook for GymTrack
+# Automatically runs typechecking, test suites, and frontend build before any push.
+# If ANY check fails, the push is immediately ABORTED.
+
+echo "🛡️  [Pre-push Hook] Running pre-push quality checks..."
+
+echo "1/4 🔍 Typechecking backend..."
+npm --prefix server run typecheck
+if [ $? -ne 0 ]; then
+  echo "❌ [Pre-push Hook] Backend typecheck failed! Aborting push."
+  exit 1
+fi
+
+echo "2/4 🧪 Running backend tests..."
+npm --prefix server test
+if [ $? -ne 0 ]; then
+  echo "❌ [Pre-push Hook] Backend test suite failed! Aborting push."
+  exit 1
+fi
+
+echo "3/4 🧪 Running frontend tests..."
+npm --prefix client test
+if [ $? -ne 0 ]; then
+  echo "❌ [Pre-push Hook] Frontend tests failed! Aborting push."
+  exit 1
+fi
+
+echo "4/4 📦 Testing frontend production build..."
+npm --prefix client run build
+if [ $? -ne 0 ]; then
+  echo "❌ [Pre-push Hook] Frontend production build failed! Aborting push."
+  exit 1
+fi
+
+echo "✅ [Pre-push Hook] All 4 quality gates passed! Proceeding with push."
+exit 0

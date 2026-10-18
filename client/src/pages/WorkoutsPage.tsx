@@ -4,6 +4,7 @@ import { useTemplates } from '../hooks/useTemplates';
 import { useWorkoutsQuery } from '../hooks/useWorkoutsQuery';
 import WorkoutCard from '../components/WorkoutCard';
 import ExerciseAutocomplete from '../components/ExerciseAutocomplete';
+import EmptyState from '../components/EmptyState';
 import type { SaveStatus, SetDraft, Workout, WorkoutDraft } from '../types';
 
 const fieldInput = 'w-full px-2.5 py-2 bg-slate-50 border border-slate-500 rounded-md text-slate-800';
@@ -307,9 +308,7 @@ export default function WorkoutsPage() {
         </div>
 
         {workouts.length === 0 ? (
-          <div className="text-center p-[30px] bg-white rounded-[10px] text-brand-muted">
-            No workouts logged yet. Add your first set above!
-          </div>
+          <EmptyState onAction={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
         ) : (
           <div className="flex flex-col gap-2.5">
             {workouts.map((w) => (

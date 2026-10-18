@@ -35,3 +35,4 @@ describe('Redis Cache-Aside & Resilience', () => {
     assert.equal(typeof connected, 'boolean');
   });
 });
+

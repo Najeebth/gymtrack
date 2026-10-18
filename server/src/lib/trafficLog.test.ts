@@ -86,3 +86,4 @@ describe('Traffic & Telemetry In-Memory Log Buffer', () => {
     assert.equal(logs[49].id, 'trace-11'); // oldest retained (1-10 were dropped)
   });
 });
+

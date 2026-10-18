@@ -85,3 +85,4 @@ describe('Authentication & Authorization Middlewares', () => {
     assert.match(res.body.error, /invalid token/i);
   });
 });
+

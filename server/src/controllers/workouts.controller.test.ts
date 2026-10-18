@@ -36,3 +36,4 @@ describe('Workout Controller Helper Functions', () => {
     assert.deepEqual(normalizeSets(undefined as any), []);
   });
 });
+

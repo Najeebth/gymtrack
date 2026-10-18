@@ -113,3 +113,4 @@ describe('Exercise Schemas Validation', () => {
     assert.equal(result.success, false);
   });
 });
+
