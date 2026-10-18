@@ -103,8 +103,8 @@ export default function ExerciseAutocomplete({
       </div>
 
       {open && filteredOptions.length > 0 && (
-        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-40 bg-white border border-brand-border rounded-lg shadow-xl max-h-[240px] overflow-y-auto divide-y divide-slate-100">
-          <div>
+        <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-40 bg-white border border-brand-border rounded-lg shadow-xl max-h-[260px] flex flex-col overflow-hidden">
+          <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
             {filteredOptions.map((opt) => {
               const isSelected = opt.name.toLowerCase() === lowerValue;
               return (
@@ -150,7 +150,7 @@ export default function ExerciseAutocomplete({
                 onQuickAdd(value);
                 setOpen(false);
               }}
-              className="p-2.5 bg-orange-50/80 hover:bg-orange-100/90 text-brand-orange text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition sticky bottom-0 border-t border-brand-border/60"
+              className="p-2.5 bg-orange-50 hover:bg-orange-100 text-brand-orange text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition border-t border-brand-border shrink-0 select-none"
             >
               <Plus size={13} />
               <span>Create new exercise{value.trim() ? ` "${value.trim()}"` : ''}</span>

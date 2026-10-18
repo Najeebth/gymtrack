@@ -333,17 +333,7 @@ function TemplateEditor({
                 </select>
               </div>
               <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs text-brand-muted block">Exercise name</label>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenQuickAdd(exerciseIndex, exercise.muscleGroup, exercise.exercise)}
-                    className="text-xs text-brand-orange hover:text-brand-orange-hover font-semibold flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 transition"
-                    title="Create a new custom exercise"
-                  >
-                    <Plus size={12} /> New exercise
-                  </button>
-                </div>
+                <label className={fieldLabel}>Exercise name</label>
                 <ExerciseAutocomplete
                   value={exercise.exercise}
                   onChange={(value) => updateExercise(exerciseIndex, { exercise: value })}
