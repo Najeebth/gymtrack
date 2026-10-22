@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppDataProvider } from './context/AppDataContext';
 import { ToastProvider } from './context/ToastContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import ToastStack from './components/ToastStack';
 import RequireAdmin from './components/RequireAdmin';
 import RequireAuth from './components/RequireAuth';
@@ -22,6 +23,7 @@ import MapPage from './pages/MapPage';
 export default function App() {
   return (
     <ToastProvider>
+      <ConfirmProvider>
       <AppDataProvider>
         <BrowserRouter>
           <Routes>
@@ -109,6 +111,7 @@ export default function App() {
           <ToastStack />
         </BrowserRouter>
       </AppDataProvider>
+      </ConfirmProvider>
     </ToastProvider>
   );
 }

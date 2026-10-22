@@ -11,6 +11,7 @@ import {
   Menu,
 } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 interface HeaderProps {
   /** Opens the mobile navigation drawer. */
@@ -30,6 +31,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     removeAvatar,
     logout,
   } = useAppData();
+  const confirm = useConfirm();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -70,7 +72,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
   };
 
   const handleRemovePhoto = async () => {
-    if (!window.confirm('Remove profile photo?')) return;
+    setMenuOpen(false);
+    const ok = await confirm({
+      title: 'Remove profile photo?',
+      message: 'Your initial will be shown instead. You can upload a new photo any time.',
+      confirmLabel: 'Remove photo',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setIsUploading(true);
     try {
       await removeAvatar();

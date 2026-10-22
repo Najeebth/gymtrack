@@ -6,6 +6,7 @@ import { useExercisesQuery } from '../hooks/useExercisesQuery';
 import ExerciseAutocomplete from '../components/ExerciseAutocomplete';
 import { COMMON_EXERCISES, EQUIPMENT_OPTIONS } from '../constants/exercises';
 import { localToday } from '../utils/date';
+import { useConfirm } from '../context/ConfirmContext';
 import type { Template, TemplateDraft } from '../types';
 
 const MUSCLE_GROUPS = Object.keys(COMMON_EXERCISES);
@@ -94,9 +95,24 @@ function TemplateCard({ template, onEdit, onDelete }: { template: Template; onEd
   const { logRoutine } = useWorkoutsQuery();
   const [date, setDate] = useState(today);
   const [logging, setLogging] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const confirm = useConfirm();
 
   const totalSets = template.exercises.reduce((n, e) => n + e.sets.length, 0);
+
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete template?',
+      message: (
+        <>
+          <strong className="text-brand-navy">{template.name}</strong> will be deleted. Workouts you already logged
+          from it are kept.
+        </>
+      ),
+      confirmLabel: 'Delete template',
+      tone: 'danger',
+    });
+    if (ok) onDelete();
+  };
 
   const handleLog = async () => {
     setLogging(true);
@@ -122,42 +138,24 @@ function TemplateCard({ template, onEdit, onDelete }: { template: Template; onEd
             {totalSets === 1 ? '' : 's'}
           </div>
         </div>
-        {confirmingDelete ? (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-brand-muted">Delete this template?</span>
-            <button
-              onClick={onDelete}
-              className="bg-brand-danger text-white border-none rounded-md px-2.5 py-1 font-semibold cursor-pointer"
-            >
-              Delete
-            </button>
-            <button
-              onClick={() => setConfirmingDelete(false)}
-              className="bg-transparent border border-brand-border text-brand-muted rounded-md px-2.5 py-1 cursor-pointer"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={onEdit}
-              title="Edit template"
-              aria-label={`Edit ${template.name}`}
-              className="bg-transparent border-none text-brand-muted cursor-pointer p-1.5"
-            >
-              <Pencil size={16} />
-            </button>
-            <button
-              onClick={() => setConfirmingDelete(true)}
-              title="Delete template"
-              aria-label={`Delete ${template.name}`}
-              className="bg-transparent border-none text-red-400 cursor-pointer p-1.5"
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onEdit}
+            title="Edit template"
+            aria-label={`Edit ${template.name}`}
+            className="bg-transparent border-none text-brand-muted cursor-pointer p-1.5"
+          >
+            <Pencil size={16} />
+          </button>
+          <button
+            onClick={handleDelete}
+            title="Delete template"
+            aria-label={`Delete ${template.name}`}
+            className="bg-transparent border-none text-red-400 cursor-pointer p-1.5"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
 
       <ul className="flex flex-col gap-1.5 mb-4 list-none">

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { useDebounce } from '../hooks/useDebounce';
 import { useExercisesQuery } from '../hooks/useExercisesQuery';
 import type { Exercise, MuscleGroup } from '../types';
@@ -45,6 +46,7 @@ const fieldLabel = 'text-xs font-semibold text-brand-muted block mb-1';
 export default function ExercisesPage() {
   const { authToken } = useAppData();
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Read URL query parameters (or sensible defaults)
@@ -161,7 +163,18 @@ export default function ExercisesPage() {
 
   const handleDeleteExercise = async (exercise: Exercise) => {
     if (!authToken || !exercise.isCustom) return;
-    if (!window.confirm(`Delete custom exercise "${exercise.name}"?`)) return;
+    const ok = await confirm({
+      title: 'Delete custom exercise?',
+      message: (
+        <>
+          <strong className="text-brand-navy">{exercise.name}</strong> will be removed from your library. Workouts you
+          already logged with it are kept.
+        </>
+      ),
+      confirmLabel: 'Delete exercise',
+      tone: 'danger',
+    });
+    if (!ok) return;
 
     try {
       await deleteExerciseMutation(exercise.id);

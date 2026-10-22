@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { Users } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { useAdminUsersQuery } from '../hooks/useAdminQuery';
 import type { AdminUser } from '../types';
 
@@ -10,13 +10,26 @@ const formatDate = (iso: string) =>
 export default function UsersPage() {
   const { email: myEmail } = useAppData();
   const { users, loadError, deleteUser, isDeleting } = useAdminUsersQuery();
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   const handleDelete = async (user: AdminUser) => {
+    const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    const ok = await confirm({
+      title: 'Delete account?',
+      message: (
+        <>
+          <strong className="text-brand-navy">{user.email}</strong> and their {plural(user.workoutCount, 'workout')} and{' '}
+          {plural(user.templateCount, 'template')} will be permanently deleted. This cannot be undone.
+        </>
+      ),
+      confirmLabel: 'Delete account',
+      tone: 'danger',
+    });
+    if (!ok) return;
     try {
       await deleteUser(user.id);
-    } finally {
-      setConfirmingId(null);
+    } catch {
+      // The mutation's onError shows the failure toast
     }
   };
 
@@ -79,30 +92,12 @@ export default function UsersPage() {
                       <td className="px-3 py-2.5 text-right whitespace-nowrap">
                         {isMe ? (
                           <span className="text-xs text-brand-muted">—</span>
-                        ) : confirmingId === user.id ? (
-                          <span className="inline-flex items-center gap-2">
-                            <span className="text-brand-muted">
-                              Delete account and {user.workoutCount} workout{user.workoutCount === 1 ? '' : 's'}?
-                            </span>
-                            <button
-                              onClick={() => handleDelete(user)}
-                              disabled={deletingId === user.id}
-                              className="bg-brand-danger text-white border-none rounded-md px-2.5 py-1 font-semibold cursor-pointer disabled:opacity-70"
-                            >
-                              {deletingId === user.id ? 'Deleting…' : 'Delete'}
-                            </button>
-                            <button
-                              onClick={() => setConfirmingId(null)}
-                              className="bg-transparent border border-brand-border text-brand-muted rounded-md px-2.5 py-1 cursor-pointer"
-                            >
-                              Cancel
-                            </button>
-                          </span>
                         ) : (
                           <button
-                            onClick={() => setConfirmingId(user.id)}
+                            onClick={() => handleDelete(user)}
+                            disabled={isDeleting}
                             aria-label={`Delete ${user.email}`}
-                            className="bg-transparent border border-red-200 text-brand-danger rounded-md px-2.5 py-1 cursor-pointer"
+                            className="bg-transparent border border-red-200 text-brand-danger rounded-md px-2.5 py-1 cursor-pointer disabled:opacity-50"
                           >
                             Delete
                           </button>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { animate } from 'motion';
 import { Bot, Loader2, MessageCircle, SendHorizontal, Sparkles, Trash2, X } from 'lucide-react';
 import { useChat } from '../../hooks/useChat';
+import { useConfirm } from '../../context/ConfirmContext';
 import { EXPO_OUT, prefersReducedMotion } from '../../utils/motion';
 import ChatDraftCard from './ChatDraftCard';
 import type { ChatMessage } from '../../types';
@@ -42,6 +43,7 @@ export default function ChatWidget() {
 
 function ChatPanel({ onClose }: { onClose: () => void }) {
   const chat = useChat();
+  const confirm = useConfirm();
   const [input, setInput] = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -59,7 +61,8 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
   // focus drops to <body> (e.g. after the clicked Dismiss button unmounts)
   useEffect(() => {
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      // defaultPrevented: a confirm dialog on top already handled this Escape
+      if (e.key === 'Escape' && !e.defaultPrevented) onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
@@ -79,8 +82,14 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
     submit(input);
   };
 
-  const handleClear = () => {
-    if (window.confirm('Clear the whole conversation?')) chat.clearHistory();
+  const handleClear = async () => {
+    const ok = await confirm({
+      title: 'Clear conversation?',
+      message: 'This deletes your chat history on every device. Workouts you already logged are not affected.',
+      confirmLabel: 'Clear chat',
+      tone: 'danger',
+    });
+    if (ok) chat.clearHistory();
   };
 
   return (

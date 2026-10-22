@@ -261,6 +261,7 @@ sequenceDiagram
 ### 2.7 Responsive Shell & Local Dates
 
 - The sidebar is a static column from the `md` breakpoint up and a slide-in drawer below it (opened from the header, closed on navigation, backdrop tap, or Escape). The chat panel is full screen on phones and a corner card on larger screens.
+- **Destructive actions go through one confirm dialog** (`useConfirm()` from [`ConfirmContext.tsx`](file:///d:/gymtrack/client/src/context/ConfirmContext.tsx)), awaited like `window.confirm()`. Danger dialogs focus Cancel first, trap Tab, and consume Escape so panels underneath stay open.
 - **"Today" is always the device's local date** (`localToday()` in `client/src/utils/date.ts`), never `toISOString()`, which is UTC and would date early-morning workouts as the previous day in timezones ahead of UTC.
 
 ---

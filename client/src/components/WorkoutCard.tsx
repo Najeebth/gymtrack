@@ -1,6 +1,7 @@
 import { Pencil, Trash2 } from 'lucide-react';
 import type { Workout } from '../types';
 import { getWeekdayName } from '../utils/date';
+import { useConfirm } from '../context/ConfirmContext';
 import EditWorkoutForm from './EditWorkoutForm';
 import type { WorkoutDraft, SaveStatus } from '../types';
 
@@ -33,6 +34,25 @@ export default function WorkoutCard({
   onEdit,
   onDelete
 }: WorkoutCardProps) {
+  const confirm = useConfirm();
+
+  // Confirmed here so every page that lists workouts gets it for free
+  const handleDelete = async () => {
+    const sets = w.sets?.length || 0;
+    const ok = await confirm({
+      title: 'Delete workout?',
+      message: (
+        <>
+          <strong className="text-brand-navy">{w.exercise}</strong> on {w.date} and its {sets} set{sets === 1 ? '' : 's'}{' '}
+          will be permanently deleted.
+        </>
+      ),
+      confirmLabel: 'Delete workout',
+      tone: 'danger',
+    });
+    if (ok) onDelete();
+  };
+
   return (
     <div
       className={`bg-white px-4 py-3 rounded-xl border ${
@@ -74,8 +94,9 @@ export default function WorkoutCard({
                 <Pencil size={14} /> Edit
               </button>
               <button
-                onClick={onDelete}
+                onClick={handleDelete}
                 title="Delete workout"
+                aria-label={`Delete ${w.exercise} on ${w.date}`}
                 className="bg-red-900 border-none rounded-md text-red-300 p-2 cursor-pointer flex"
               >
                 <Trash2 size={16} />
