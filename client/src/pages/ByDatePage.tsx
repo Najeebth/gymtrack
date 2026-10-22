@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useWorkoutsQuery } from '../hooks/useWorkoutsQuery';
 import WorkoutCard from '../components/WorkoutCard';
-import { getWeekdayName } from '../utils/date';
+import { getWeekdayName, localToday } from '../utils/date';
 import type { SaveStatus, Workout, WorkoutDraft } from '../types';
 
 export default function ByDatePage() {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(localToday);
   const {
     workouts: workoutsByDate,
     deleteWorkout,
@@ -90,7 +90,7 @@ export default function ByDatePage() {
         <div className="text-sm text-brand-orange mt-2">{getWeekdayName(selectedDate)}</div>
       </div>
 
-      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
         <div className="bg-white p-3.5 rounded-[10px] border border-brand-border">
           <div className="text-sm text-brand-muted">Exercises Logged</div>
           <div className="text-xl font-bold mt-1">{workoutsByDate.length}</div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { localToday } from './utils/date';
 
 declare global {
   interface Window {
@@ -56,7 +57,7 @@ const ENDPOINTS: EndpointDef[] = [
     path: '/api/workouts',
     description: 'Create a new workout entry in PostgreSQL',
     body: {
-      date: new Date().toISOString().split('T')[0],
+      date: localToday(),
       muscleGroup: 'Chest',
       exercise: 'Test Bench Press',
       sets: 3,

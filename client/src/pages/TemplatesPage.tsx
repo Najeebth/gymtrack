@@ -5,12 +5,13 @@ import { useWorkoutsQuery } from '../hooks/useWorkoutsQuery';
 import { useExercisesQuery } from '../hooks/useExercisesQuery';
 import ExerciseAutocomplete from '../components/ExerciseAutocomplete';
 import { COMMON_EXERCISES, EQUIPMENT_OPTIONS } from '../constants/exercises';
+import { localToday } from '../utils/date';
 import type { Template, TemplateDraft } from '../types';
 
 const MUSCLE_GROUPS = Object.keys(COMMON_EXERCISES);
 const fieldInput = 'w-full px-2.5 py-2 bg-slate-50 border border-slate-500 rounded-md text-slate-800';
 const fieldLabel = 'text-xs text-brand-muted block mb-1';
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => localToday();
 
 const emptyExercise = () => ({ muscleGroup: 'Chest', exercise: '', sets: [{ reps: 10, weightKg: 60 }] });
 const emptyDraft = (): TemplateDraft => ({ name: '', exercises: [emptyExercise()] });

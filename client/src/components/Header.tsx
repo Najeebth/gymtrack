@@ -8,10 +8,16 @@ import {
   Camera,
   Trash2,
   Loader2,
+  Menu,
 } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 
-export default function Header() {
+interface HeaderProps {
+  /** Opens the mobile navigation drawer. */
+  onMenuClick: () => void;
+}
+
+export default function Header({ onMenuClick }: HeaderProps) {
   const {
     isOnline,
     pendingCount,
@@ -82,17 +88,25 @@ export default function Header() {
   const initial = (email?.[0] || 'U').toUpperCase();
 
   return (
-    <header className="h-16 flex items-center justify-between px-6 bg-white border-b border-brand-border shrink-0">
-      <div className="flex items-center gap-3 text-brand-orange">
+    <header className="h-16 flex items-center justify-between gap-3 px-4 md:px-6 bg-white border-b border-brand-border shrink-0">
+      <div className="flex items-center gap-2 md:gap-3 text-brand-orange">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          aria-label="Open navigation"
+          className="md:hidden -ml-1 p-2 rounded-lg text-brand-navy hover:bg-slate-100 transition cursor-pointer"
+        >
+          <Menu size={22} />
+        </button>
         <Dumbbell size={28} />
         <span className="text-xl font-bold text-brand-navy">GymTrack</span>
       </div>
 
-      <div className="flex items-center bg-slate-50 border border-brand-border rounded-full px-4 py-1.5 w-[300px] text-brand-muted">
+      <div className="hidden lg:flex items-center bg-slate-50 border border-brand-border rounded-full px-4 py-1.5 w-[300px] text-brand-muted">
         <Activity size={16} className="mr-2" /> Search...
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 md:gap-4">
         {(!isOnline || pendingCount > 0) && (
           <div
             className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs border ${
@@ -105,7 +119,7 @@ export default function Header() {
           </div>
         )}
         {lastApiLatency && (
-          <div className="text-xs text-brand-muted flex items-center gap-1">
+          <div className="hidden sm:flex text-xs text-brand-muted items-center gap-1">
             <Zap size={14} className="text-brand-orange" /> {lastApiLatency} ms
           </div>
         )}

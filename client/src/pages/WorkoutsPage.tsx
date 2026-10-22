@@ -5,6 +5,7 @@ import { useWorkoutsQuery } from '../hooks/useWorkoutsQuery';
 import WorkoutCard from '../components/WorkoutCard';
 import ExerciseAutocomplete from '../components/ExerciseAutocomplete';
 import EmptyState from '../components/EmptyState';
+import { localToday } from '../utils/date';
 import type { SaveStatus, SetDraft, Workout, WorkoutDraft } from '../types';
 
 const fieldInput = 'w-full px-2.5 py-2 bg-slate-50 border border-slate-500 rounded-md text-slate-800';
@@ -23,7 +24,7 @@ export default function WorkoutsPage() {
   const { templates } = useTemplates();
 
   const [formData, setFormData] = useState<WorkoutDraft>({
-    date: new Date().toISOString().split('T')[0],
+    date: localToday(),
     muscleGroup: 'Chest',
     exercise: '',
     notes: '',
@@ -146,7 +147,7 @@ export default function WorkoutsPage() {
   return (
     <div>
       {/* Quick Metrics Bar */}
-      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
         <div className="bg-white p-3.5 rounded-[10px] border border-brand-border">
           <div className="text-sm text-brand-muted">Total Logged Sets</div>
           <div className="text-xl font-bold mt-1">{totalLoggedSets}</div>
