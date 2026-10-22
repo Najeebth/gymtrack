@@ -1,6 +1,14 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { getWeekdayName } from './date.ts';
+import { getWeekdayName, localToday } from './date.ts';
+
+describe('localToday', () => {
+  it('should format the local calendar date with zero padding', () => {
+    // Built from local components, so this holds in every timezone
+    assert.equal(localToday(new Date(2026, 0, 5, 1, 30)), '2026-01-05');
+    assert.equal(localToday(new Date(2026, 9, 23, 23, 59)), '2026-10-23');
+  });
+});
 
 describe('Date Utilities (Frontend)', () => {
   it('should return correct weekday name for standard ISO date strings', () => {

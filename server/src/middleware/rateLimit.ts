@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { redis, isRedisConnected } from '../lib/redis.js';
 
@@ -46,5 +46,19 @@ export const apiRateLimit = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
   store: createRedisStore('rl:api:'),
+  passOnStoreError: true,
+});
+
+// 3. Chat Limiter: 20 messages per minute per user. Mounted after requireAuth,
+// so it keys on the account (shared IPs like gym Wi-Fi don't collide). This
+// guards against bursts; the daily LLM cap lives in the chat service.
+export const chatRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'You are sending messages too fast. Please wait a moment.' },
+  keyGenerator: (req) => req.user?.id ?? ipKeyGenerator(req.ip ?? ''),
+  store: createRedisStore('rl:chat:'),
   passOnStoreError: true,
 });

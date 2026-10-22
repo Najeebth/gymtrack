@@ -3,6 +3,22 @@ import assert from 'node:assert/strict';
 import { loginSchema, signupSchema } from './auth.schema.js';
 import { createWorkoutSchema, setInputSchema, updateSetSchema } from './workouts.schema.js';
 import { createExerciseSchema } from './exercises.schema.js';
+import { chatMessageSchema } from './chat.schema.js';
+
+describe('Chat Schema Validation', () => {
+  it('should accept a message with the client date and trim whitespace', () => {
+    const result = chatMessageSchema.safeParse({ message: '  bench 3x8 60kg  ', today: '2026-10-23' });
+    assert.equal(result.success, true);
+    if (result.success) assert.equal(result.data.message, 'bench 3x8 60kg');
+  });
+
+  it('should reject empty, oversized, or undated messages', () => {
+    assert.equal(chatMessageSchema.safeParse({ message: '   ', today: '2026-10-23' }).success, false);
+    assert.equal(chatMessageSchema.safeParse({ message: 'x'.repeat(501), today: '2026-10-23' }).success, false);
+    assert.equal(chatMessageSchema.safeParse({ message: 'hi' }).success, false);
+    assert.equal(chatMessageSchema.safeParse({ message: 'hi', today: '23/10/2026' }).success, false);
+  });
+});
 
 describe('Auth Schemas Validation', () => {
   it('should accept valid login credentials', () => {

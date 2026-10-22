@@ -113,6 +113,29 @@ export interface PendingRecord {
   originalSetIds?: string[];
 }
 
+// Chatbot. Mirrors the server's ChatMessage model and ChatAction type.
+export interface ChatWorkoutDraft {
+  date: string;
+  exercise: string;
+  muscleGroup: string;
+  sets: { reps: number; weightKg: number }[];
+}
+
+export type ChatAction = { type: 'CREATE_WORKOUT'; draft: ChatWorkoutDraft };
+
+export interface ChatMessage {
+  id: string;
+  role: 'USER' | 'ASSISTANT';
+  content: string;
+  /** Who produced an assistant reply: rule-based intent, the LLM, or a canned fallback. */
+  source: 'RULE' | 'LLM' | 'FALLBACK' | null;
+  action: ChatAction | null;
+  createdAt: string;
+}
+
+/** What happened to a draft the bot proposed, once the user acted on it. */
+export type ChatActionStatus = 'saved' | 'queued' | 'dismissed';
+
 export interface Exercise {
   id: string;
   name: string;

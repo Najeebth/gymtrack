@@ -15,6 +15,7 @@ import templatesRoutes from './routes/templates.routes.js';
 import usersRoutes from './routes/users.routes.js';
 import exercisesRoutes from './routes/exercises.routes.js';
 import profileRoutes from './routes/profile.routes.js';
+import chatRoutes from './routes/chat.routes.js';
 
 export const app = express();
 
@@ -74,6 +75,7 @@ app.use('/api/workouts', workoutsRoutes);
 app.use('/api/templates', templatesRoutes);
 app.use('/api/exercises', exercisesRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/chat', chatRoutes);
 
 // --- Global Error Handling ---
 app.use(notFoundHandler);

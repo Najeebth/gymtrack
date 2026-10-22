@@ -20,9 +20,10 @@ model User {
   role      Role      @default(MEMBER)
   avatarUrl String?
   createdAt DateTime  @default(now())
-  workouts  Workout[]
-  templates Template[]
-  exercises Exercise[]
+  workouts     Workout[]
+  templates    Template[]
+  exercises    Exercise[]
+  chatMessages ChatMessage[]
 }
 
 model Workout {
@@ -82,4 +83,32 @@ model Exercise {
 
   @@index([muscleGroup])
   @@index([userId])
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+// Who produced an assistant reply: a rule-based intent (free), the LLM
+// fallback, or a canned fallback when the LLM is unavailable/over quota.
+enum ChatSource {
+  RULE
+  LLM
+  FALLBACK
+}
+
+// One chat turn. `action` holds a proposed change the user must confirm,
+// e.g. { "type": "CREATE_WORKOUT", "draft": { ... } }.
+model ChatMessage {
+  id        String      @id @default(uuid())
+  role      ChatRole
+  content   String
+  source    ChatSource?
+  action    Json?
+  createdAt DateTime    @default(now())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }

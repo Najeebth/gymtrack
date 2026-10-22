@@ -179,6 +179,66 @@ export class WorkoutsService {
   }
 
   /**
+   * Retrieves workouts on or after a date (YYYY-MM-DD), newest first.
+   * Dates are stored as ISO strings, so lexical comparison is chronological.
+   */
+  async listWorkoutsSince(userId: string, sinceDate: string) {
+    return dbTrace(`findMany Workout (since:${sinceDate})`, () =>
+      prisma.workout.findMany({
+        where: { userId, date: { gte: sinceDate } },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        include: { sets: { orderBy: { setNumber: 'asc' } } },
+      })
+    );
+  }
+
+  /**
+   * Distinct exercise names the user has logged, most recently trained first.
+   */
+  async listLoggedExerciseNames(userId: string): Promise<string[]> {
+    const rows = await dbTrace('groupBy Workout.exercise (logged names)', () =>
+      prisma.workout.groupBy({
+        by: ['exercise'],
+        where: { userId },
+        _max: { createdAt: true },
+        orderBy: { _max: { createdAt: 'desc' } },
+      })
+    );
+    return rows.map((r) => r.exercise);
+  }
+
+  /**
+   * Heaviest set ever logged for an exercise (ties broken by reps), or null.
+   */
+  async getPersonalBest(userId: string, exercise: string) {
+    return dbTrace(`findFirst WorkoutSet (PR:${exercise})`, () =>
+      prisma.workoutSet.findFirst({
+        where: { workout: { userId, exercise: { equals: exercise, mode: 'insensitive' } } },
+        orderBy: [{ weightKg: 'desc' }, { reps: 'desc' }],
+        include: { workout: { select: { date: true, exercise: true } } },
+      })
+    );
+  }
+
+  /**
+   * Most recent workout matching an exercise or a muscle group, or null.
+   */
+  async getLastWorkout(userId: string, filter: { exercise: string } | { muscleGroup: string }) {
+    const match =
+      'exercise' in filter
+        ? { exercise: { equals: filter.exercise, mode: 'insensitive' as const } }
+        : { muscleGroup: { equals: filter.muscleGroup, mode: 'insensitive' as const } };
+
+    return dbTrace(`findFirst Workout (last:${Object.values(filter)[0]})`, () =>
+      prisma.workout.findFirst({
+        where: { userId, ...match },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        include: { sets: { orderBy: { setNumber: 'asc' } } },
+      })
+    );
+  }
+
+  /**
    * Deletes an entire workout and cascades to its sets.
    */
   async deleteWorkout(id: string, userId: string) {

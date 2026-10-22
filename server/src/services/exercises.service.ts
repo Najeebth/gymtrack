@@ -95,6 +95,23 @@ export class ExercisesService {
   }
 
   /**
+   * Name + muscle group of every exercise visible to the user (public library
+   * + their custom ones). The key sits under exercises:{userId}:* so
+   * creating/deleting a custom exercise already invalidates it.
+   */
+  async listExerciseIndex(userId: string): Promise<{ name: string; muscleGroup: string }[]> {
+    return cacheAside(`exercises:${userId}:index`, 1800, () =>
+      dbTrace('findMany Exercise (name index)', () =>
+        prisma.exercise.findMany({
+          where: { OR: [{ isCustom: false }, { userId }] },
+          select: { name: true, muscleGroup: true },
+          orderBy: { name: 'asc' },
+        })
+      )
+    );
+  }
+
+  /**
    * Creates a user-custom exercise, checking for duplicates and invalidating Redis caches.
    */
   async createCustomExercise(userId: string, input: CreateExerciseInput) {
