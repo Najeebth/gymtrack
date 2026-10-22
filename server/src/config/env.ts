@@ -27,7 +27,9 @@ const envSchema = z
     // chatbot degrades to rule-based intents only, like Redis falls back to Postgres.
     CF_ACCOUNT_ID: z.string().default(''),
     CF_AI_TOKEN: z.string().default(''),
-    CF_AI_MODEL: z.string().default('@cf/meta/llama-3.1-8b-instruct'),
+    // Picked by benchmarking free-plan models on real chat questions: 6/6 correct
+    // at ~2.4s, where llama-3.1-8b misread data and hallucinated tool names
+    CF_AI_MODEL: z.string().default('@cf/openai/gpt-oss-120b'),
     CHAT_LLM_DAILY_LIMIT: z.coerce.number().int().nonnegative().default(50),
   })
   .superRefine((env, ctx) => {

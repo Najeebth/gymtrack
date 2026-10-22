@@ -98,15 +98,35 @@ const REPLIES = {
   badProposal: 'I couldn\'t work out the sets. Try the quick format: "bench 3x8 60kg".',
 };
 
-function systemPrompt(today: string): string {
+function systemPrompt(today: string, canPropose: boolean): string {
   return [
     `You are the training assistant inside GymTrack, a personal workout log. Today is ${today}. Weights are in kg.`,
-    'Reply in at most 4 short sentences.',
+    'Reply in at most 4 short sentences, in plain language. Never write tool names or JSON in your reply.',
     "For anything about the user's own training, call a tool. Never invent numbers, dates or workouts.",
-    'If the user describes a workout they did, call propose_workout_log. It only shows a confirm button; nothing is saved until they confirm.',
+    'After a tool returns data, answer with the actual exercises, sets and weights from it.',
+    'For advice on what to train next, first call get_recent_training and suggest muscle groups the user has not trained recently.',
+    // Only mention the logging tool when it is offered: naming an unavailable tool
+    // made the model print "propose_workout_log ..." as plain text
+    ...(canPropose
+      ? ['If the user describes a workout they did, call propose_workout_log. It only shows a confirm button; nothing is saved until they confirm.']
+      : []),
     'You may answer general training questions from knowledge. For pain or injury, suggest seeing a professional.',
-    'Politely decline requests unrelated to training.',
+    'Use the earlier conversation to understand short follow-ups. If a message is still unclear, ask one short clarifying question.',
+    'Politely decline requests clearly unrelated to training.',
   ].join('\n');
+}
+
+const PLAIN_ANSWER_NUDGE = 'Answer the user in plain sentences using the information above. Do not write tool names, function calls or JSON.';
+
+const TOOL_NAMES = [...CHAT_TOOLS, PROPOSE_WORKOUT_TOOL].map((t) => t.name);
+
+/**
+ * Small models sometimes write a tool call as text ("propose_workout_log 2026-10-22")
+ * instead of making one. Such replies are never shown, saved, or fed back as history.
+ */
+export function looksLikeLeakedToolCall(text: string): boolean {
+  const trimmed = text.trim();
+  return TOOL_NAMES.some((name) => trimmed.includes(name)) || /^[[{]/.test(trimmed) || /<\/?(tool|function)/i.test(trimmed);
 }
 
 // --- Service -------------------------------------------------------------------
@@ -229,25 +249,39 @@ export class ChatService {
     // One unit of quota per user message, however many tool rounds it takes
     if (!(await this.deps.consumeQuota(userId))) return fallback(REPLIES.quota);
 
+    // Questions never get the logging tool, so the model can't "propose" an invented workout
+    const canPropose = looksLikeWorkoutReport(message);
+    const toolset = canPropose ? [...CHAT_TOOLS, PROPOSE_WORKOUT_TOOL] : CHAT_TOOLS;
+
+    // Canned fallbacks and leaked tool-call text are noise the model would imitate
+    const usefulHistory = history.filter(
+      (m) => m.role === 'USER' || (m.source !== 'FALLBACK' && !looksLikeLeakedToolCall(m.content))
+    );
+
     const messages: LlmMessage[] = [
-      { role: 'system', content: systemPrompt(today) },
-      ...history.map((m): LlmMessage => ({ role: m.role === 'USER' ? 'user' : 'assistant', content: m.content })),
+      { role: 'system', content: systemPrompt(today, canPropose) },
+      ...usefulHistory.map((m): LlmMessage => ({ role: m.role === 'USER' ? 'user' : 'assistant', content: m.content })),
       { role: 'user', content: message },
     ];
 
-    // Questions never get the logging tool, so the model can't "propose" an invented workout
-    const toolset = looksLikeWorkoutReport(message) ? [...CHAT_TOOLS, PROPOSE_WORKOUT_TOOL] : CHAT_TOOLS;
+    let nudged = false;
 
     try {
       for (let round = 1; round <= MAX_TOOL_ROUNDS + 1; round++) {
-        // The final round offers no tools, forcing the model to answer with what it has
-        const offerTools = round <= MAX_TOOL_ROUNDS;
+        // The final round (and a retry after leaked text) offers no tools, forcing a plain answer
+        const offerTools = round <= MAX_TOOL_ROUNDS && !nudged;
         const result = await llmTrace(`${llm.name} round ${round}`, () =>
           llm.chat({ messages, tools: offerTools ? toolset : undefined })
         );
 
         if (result.toolCalls.length === 0) {
-          return result.text ? { content: result.text, source: 'LLM' } : fallback(REPLIES.notUnderstood);
+          if (!result.text) return fallback(REPLIES.notUnderstood);
+          if (!looksLikeLeakedToolCall(result.text)) return { content: result.text, source: 'LLM' };
+          // Retry once without tools; a second leak gives the canned reply instead of garbage
+          if (nudged || round > MAX_TOOL_ROUNDS) return fallback(REPLIES.notUnderstood);
+          nudged = true;
+          messages.push({ role: 'system', content: PLAIN_ANSWER_NUDGE });
+          continue;
         }
 
         // propose_workout_log is handled here, not in ChatTools: it ends the turn

@@ -228,6 +228,66 @@ describe('ChatService - LLM path', () => {
     assert.equal(llm.requests[3].tools, undefined);
   });
 
+  it('should retry without tools when the model writes a tool call as text', async () => {
+    // From real use: the model replied with the literal text "propose_workout_log 2026-10-22"
+    const llm = scriptedLlm([
+      { text: 'propose_workout_log 2026-10-22', toolCalls: [] },
+      { text: 'You had no workouts logged that day.', toolCalls: [] },
+    ]);
+    const { chat } = service({ getLlm: () => llm });
+
+    const { assistantMessage } = await chat.send('u1', 'anything worth noting about my recovery', TODAY);
+
+    assert.equal(assistantMessage.content, 'You had no workouts logged that day.');
+    assert.equal(llm.requests[1].tools, undefined);
+    assert.match(llm.requests[1].messages.at(-1)!.content, /plain sentences/);
+  });
+
+  it('should never save leaked tool-call text, even after a retry', async () => {
+    const llm = scriptedLlm([
+      { text: 'propose_workout_log 2026-10-17', toolCalls: [] },
+      { text: '{"name": "list_workouts_on_date"}', toolCalls: [] },
+    ]);
+    const { chat } = service({ getLlm: () => llm });
+    const { assistantMessage } = await chat.send('u1', 'where are they', TODAY);
+    assert.equal(assistantMessage.source, 'FALLBACK');
+    assert.doesNotMatch(assistantMessage.content, /propose_workout_log|list_workouts_on_date/);
+  });
+
+  it('should keep fallbacks and leaked replies out of the history sent to the model', async () => {
+    const llm = scriptedLlm([{ text: 'Sure.', toolCalls: [] }]);
+    const store = memoryStore([
+      { role: 'USER', content: 'yesterday' },
+      { role: 'ASSISTANT', content: 'propose_workout_log 2026-10-22', source: 'LLM' },
+      { role: 'USER', content: 'hmm' },
+      { role: 'ASSISTANT', content: "I didn't catch that.", source: 'FALLBACK' },
+      { role: 'USER', content: 'tell me about rest days' },
+      { role: 'ASSISTANT', content: 'Rest days help recovery.', source: 'LLM' },
+    ]);
+    const { chat } = service({ getLlm: () => llm, store });
+
+    await chat.send('u1', 'how many per week', TODAY);
+
+    const sent = llm.requests[0].messages.map((m) => m.content);
+    assert.ok(!sent.some((c) => c.includes('propose_workout_log 2026')));
+    assert.ok(!sent.includes("I didn't catch that."));
+    assert.ok(sent.includes('Rest days help recovery.'));
+  });
+
+  it('should only mention the logging tool in the prompt when it is offered', async () => {
+    const llm = scriptedLlm([
+      { text: 'Rest 2-3 minutes.', toolCalls: [] },
+      { text: '', toolCalls: [{ name: 'propose_workout_log', arguments: { exercise: 'squat', set_count: 3, reps: 5, weight_kg: 100 } }] },
+    ]);
+    const { chat } = service({ getLlm: () => llm });
+
+    await chat.send('u1', 'how long should I rest between sets?', TODAY);
+    await chat.send('u1', 'did 3 sets of 5 squats at 100', TODAY);
+
+    assert.doesNotMatch(llm.requests[0].messages[0].content, /propose_workout_log/);
+    assert.match(llm.requests[1].messages[0].content, /propose_workout_log/);
+  });
+
   it('should map provider errors to friendly fallbacks', async () => {
     for (const [reason, pattern] of [
       ['QUOTA', /AI limit/],

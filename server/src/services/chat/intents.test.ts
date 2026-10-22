@@ -73,6 +73,35 @@ describe('parseIntent - questions', () => {
     assert.deepEqual(parseIntent('workouts on 2026-10-01', ctx), { type: 'WORKOUTS_ON_DATE', date: '2026-10-01' });
   });
 
+  it('should treat a bare date as a workouts-on-date question', () => {
+    // From real use: "yesterday" alone went to the LLM, which leaked tool-call text
+    assert.deepEqual(parseIntent('yesterday', ctx), { type: 'WORKOUTS_ON_DATE', date: '2026-10-21' });
+    assert.deepEqual(parseIntent('and today?', ctx), { type: 'WORKOUTS_ON_DATE', date: '2026-10-22' });
+    assert.deepEqual(parseIntent('yesterday workouts', ctx), { type: 'WORKOUTS_ON_DATE', date: '2026-10-21' });
+  });
+
+  it('should understand day-of-month and month-name dates', () => {
+    const on = (text: string) => (parseIntent(text, ctx) as { date?: string } | null)?.date;
+    assert.equal(on('ok workouts done in 17 of this month'), '2026-10-17'); // from real use
+    assert.equal(on('on the 17th'), '2026-10-17');
+    assert.equal(on('what did I do on oct 17'), '2026-10-17');
+    assert.equal(on('workouts 17 october'), '2026-10-17');
+    assert.equal(on('show 17/10'), '2026-10-17');
+  });
+
+  it('should never resolve a yearless date into the future', () => {
+    const on = (text: string) => (parseIntent(text, ctx) as { date?: string } | null)?.date;
+    assert.equal(on('on the 25th'), '2026-09-25'); // the 25th hasn't happened yet this month
+    assert.equal(on('workouts on dec 3'), '2025-12-03');
+    assert.equal(on('on the 31st'), '2026-08-31'); // September has no 31st, so the most recent one is August's
+    assert.equal(parseIntent('on the 5th', { today: '2026-01-03' }) && (parseIntent('on the 5th', { today: '2026-01-03' }) as { date: string }).date, '2025-12-05');
+  });
+
+  it('should leave invalid dates and non-date questions to the LLM', () => {
+    assert.equal(parseIntent('show 31/02', ctx), null);
+    assert.equal(parseIntent('why was my squat weak yesterday', ctx), null);
+  });
+
   it('should parse personal best questions', () => {
     assert.deepEqual(parseIntent("What's my best squat?", ctx), { type: 'PERSONAL_BEST', exercise: 'squat' });
     assert.deepEqual(parseIntent('pr bench', ctx), { type: 'PERSONAL_BEST', exercise: 'bench' });

@@ -110,14 +110,79 @@ function parseLogWorkout(text: string): Intent | null {
 
 // --- WORKOUTS_ON_DATE -------------------------------------------------------
 
-function parseWorkoutsOnDate(text: string, ctx: IntentContext): Intent | null {
-  const dateMatch = text.match(/\b(today|yesterday|\d{4}-\d{2}-\d{2})\b/);
-  if (!dateMatch) return null;
-  if (!/\b(workouts?|did|do|train(ed)?|lift(ed)?|show|session|log)\b|today's|yesterday's/.test(text)) return null;
+const ACTIVITY_WORDS = /\b(workouts?|did|do|done|train(ed)?|lift(ed)?|show|sessions?|log(ged)?)\b/;
+// Words that add nothing beyond "show me workouts on <date>"
+const FILLER_WORDS =
+  /\b(ok|okay|so|and|what|whats|about|how|on|the|in|of|for|this|month|show|me|my|i|did|do|done|workouts?|sessions?|trained|train|lifted|lift|log|logged|day|was|there|any)\b/g;
 
-  const word = dateMatch[1];
-  const date = word === 'today' ? ctx.today : word === 'yesterday' ? shiftDate(ctx.today, -1) : word;
-  return { type: 'WORKOUTS_ON_DATE', date };
+function parseWorkoutsOnDate(text: string, ctx: IntentContext): Intent | null {
+  const found = extractDate(text, ctx.today);
+  if (!found) return null;
+
+  // A bare date ("yesterday", "on the 17th") or a date plus an activity word.
+  // Anything else ("why was my squat weak yesterday") is a question for the LLM.
+  const rest = text
+    .replace(found.match, ' ')
+    .replace(/'s\b/g, ' ')
+    .replace(FILLER_WORDS, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+  if (rest && !ACTIVITY_WORDS.test(text)) return null;
+
+  return { type: 'WORKOUTS_ON_DATE', date: found.date };
+}
+
+const MONTH = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
+const MONTH_PREFIXES = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const ORDINAL = '(?:st|nd|rd|th)';
+
+/**
+ * Finds a calendar date in the text, resolved against the user's local date.
+ * Dates without a year mean the most recent such day (never the future):
+ * "the 25th" said on Oct 22 is Sep 25.
+ */
+export function extractDate(text: string, today: string): { date: string; match: string } | null {
+  const [year, month, day] = today.split('-').map(Number);
+  let m: RegExpMatchArray | null;
+
+  if ((m = text.match(/\b\d{4}-\d{2}-\d{2}\b/))) return { date: m[0], match: m[0] };
+  if ((m = text.match(/\btoday\b/))) return { date: today, match: m[0] };
+  if ((m = text.match(/\byesterday\b/))) return { date: shiftDate(today, -1), match: m[0] };
+
+  const resolve = (d: number, monthIndex: number, match: string) => {
+    let candidate = isoDate(year, monthIndex, d);
+    if (candidate && candidate > today) candidate = isoDate(year - 1, monthIndex, d);
+    return candidate ? { date: candidate, match } : null;
+  };
+  const monthIndex = (name: string) => MONTH_PREFIXES.indexOf(name.slice(0, 3));
+
+  // "17 oct", "17th of october"
+  if ((m = text.match(new RegExp(`\\b(\\d{1,2})${ORDINAL}?(?: of)? ${MONTH}\\b`)))) return resolve(+m[1], monthIndex(m[2]), m[0]);
+  // "oct 17", "october 17th"
+  if ((m = text.match(new RegExp(`\\b${MONTH} (\\d{1,2})${ORDINAL}?\\b`)))) return resolve(+m[2], monthIndex(m[1]), m[0]);
+  // "17/10", "17-10": day first, like the app's dd-mm-yyyy date inputs
+  if ((m = text.match(/\b(\d{1,2})[/-](\d{1,2})\b/))) return resolve(+m[1], +m[2] - 1, m[0]);
+  // "17th", "on the 17th", "17 of this month": this month, or last month if that day hasn't come yet
+  if ((m = text.match(new RegExp(`\\b(\\d{1,2})${ORDINAL}\\b`)) ?? text.match(/\b(\d{1,2})(?: of)? this month\b/))) {
+    const d = +m[1];
+    if (d < 1 || d > 31) return null;
+    // Step back month by month to the most recent month that has this day
+    // ("the 31st" on Oct 22 skips 30-day September and lands on Aug 31)
+    for (let back = d <= day ? 0 : 1; back <= 12; back++) {
+      const total = year * 12 + (month - 1) - back;
+      const candidate = isoDate(Math.floor(total / 12), total % 12, d);
+      if (candidate) return { date: candidate, match: m[0] };
+    }
+  }
+  return null;
+}
+
+/** YYYY-MM-DD for a real calendar day (monthIndex 0-11), or null ("31/02"). */
+function isoDate(year: number, monthIndex: number, day: number): string | null {
+  if (monthIndex < 0 || monthIndex > 11 || day < 1) return null;
+  const d = new Date(Date.UTC(year, monthIndex, day));
+  if (d.getUTCMonth() !== monthIndex || d.getUTCDate() !== day) return null;
+  return d.toISOString().split('T')[0];
 }
 
 export function shiftDate(isoDate: string, days: number): string {

@@ -24,6 +24,21 @@ describe('Workers AI LLM adapter', () => {
     assert.deepEqual(result.toolCalls, []);
   });
 
+  it('should send tools in the OpenAI function format', async () => {
+    let sentBody: any;
+    const capturingFetch = (async (_url: string, init?: RequestInit) => {
+      sentBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ success: true, result: { response: 'ok' } }), { status: 200 });
+    }) as typeof fetch;
+    const tool = { name: 'get_personal_best', description: 'PR', parameters: { type: 'object' as const, properties: {} } };
+
+    await provider(capturingFetch).chat({ ...ask, tools: [tool] });
+    assert.deepEqual(sentBody.tools, [{ type: 'function', function: tool }]);
+
+    await provider(capturingFetch).chat(ask);
+    assert.equal(sentBody.tools, undefined);
+  });
+
   it('should map HTTP 429 to a QUOTA error', async () => {
     const llm = provider(fakeFetch(429, { success: false, errors: [{ message: 'Too many requests' }] }));
     await assert.rejects(llm.chat(ask), (err) => err instanceof LlmError && err.reason === 'QUOTA');

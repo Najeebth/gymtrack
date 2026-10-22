@@ -94,7 +94,9 @@ export class WorkersAiProvider implements LlmProvider {
         },
         body: JSON.stringify({
           messages: request.messages,
-          ...(request.tools?.length ? { tools: request.tools } : {}),
+          // OpenAI-style tool definitions: accepted by every function-calling model we
+          // tested, while some (gpt-oss) reject Cloudflare's flat { name, parameters } form
+          ...(request.tools?.length ? { tools: request.tools.map((tool) => ({ type: 'function', function: tool })) } : {}),
           max_tokens: request.maxTokens ?? 300,
         }),
         signal: AbortSignal.timeout(this.timeoutMs),

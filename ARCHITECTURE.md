@@ -250,6 +250,9 @@ sequenceDiagram
 5. **Bounded cost.** Max 3 tool rounds (the final round offers no tools), `max_tokens: 300`, 20 messages/minute per user, and a daily LLM cap keyed on the **server** clock (a client-supplied date could reset it).
 6. **Graceful degradation.** No credentials, quota exhausted, timeout, or provider error all produce a `FALLBACK` reply; rule-based commands keep working.
 7. **Transparency.** LLM replies are labeled in the UI; `ChatMessage.source` (`RULE` / `LLM` / `FALLBACK`) records which path answered, so frequent LLM questions can be promoted to rules.
+8. **Tool-call leak guard.** A reply that contains a tool name or JSON (a model writing a call as text instead of making it) triggers one retry without tools; a second leak becomes a `FALLBACK`. Leaked and fallback replies are never sent back to the model as history, so they can't be imitated.
+
+**Model choice:** `@cf/openai/gpt-oss-120b` (override with `CF_AI_MODEL`), picked by benchmarking free-plan Workers AI models on real chat questions. The catalog lists models the free plan cannot call (403), so candidates must be tested, not just read about. Tools are sent in the OpenAI `{ type: "function", function }` format, which every tested model accepts.
 
 **Client-side duplicate protection:** only the newest draft is actionable, a ref blocks double taps, and confirmed/dismissed draft IDs are remembered per device in `localStorage` (guarded with try/catch).
 
