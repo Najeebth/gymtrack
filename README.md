@@ -20,6 +20,10 @@
   - Interactive Admin Traffic Map and database query latency tracing.
 - **☁️ Cloud Object Storage**:
   - Zero-disk avatar media handling with Backblaze B2 (S3-compatible) and time-limited presigned URLs.
+- **🤖 Chat Assistant (Rules First, LLM Fallback)**:
+  - Log workouts ("bench 3x8 60kg", "I did 4 sets of 10 pull ups") and ask about your training from a floating chat panel.
+  - Common phrases are handled by a free, instant rule-based parser; everything else goes to Cloudflare Workers AI with read-only tools.
+  - The bot only proposes workouts; nothing is saved until you confirm, through the same offline-capable path as the form.
 
 ---
 
@@ -51,8 +55,9 @@ gymtrack/
     │   ├── config/          # Environment variable parser & validation
     │   ├── controllers/     # Route HTTP adapters (workouts, exercises, auth, etc.)
     │   ├── services/        # Pure domain business logic (workouts, exercises)
+    │   │   └── chat/        # Chat assistant: intents, tools, LLM orchestration
     │   ├── db/              # Prisma client singleton
-    │   ├── lib/             # Shared libraries (redis.ts, storage.ts, dbTrace.ts, etc.)
+    │   ├── lib/             # Shared libraries (redis.ts, storage.ts, dbTrace.ts, llm.ts, etc.)
     │   ├── middleware/      # Auth, error handling, rate limiting, and telemetry
     │   ├── routes/          # Express route definitions
     │   ├── schemas/         # Zod runtime input validation schemas
@@ -81,6 +86,9 @@ npm install
 
 # Configure environment variables (create .env based on sample values)
 # DATABASE_URL, DIRECT_URL, JWT_SECRET, REDIS_URL, B2_* keys
+# Optional chat assistant LLM (rule-based commands work without these):
+# CF_ACCOUNT_ID, CF_AI_TOKEN, CF_AI_MODEL, CHAT_LLM_DAILY_LIMIT
+# In production the server refuses to start without a private JWT_SECRET.
 
 # Run database migrations & generate Prisma client
 npx prisma migrate dev
@@ -89,7 +97,7 @@ npx prisma db seed
 # Start server in watch mode
 npm run dev
 ```
-Backend runs by default at `http://localhost:3000`.
+Backend runs by default at `http://localhost:4000`.
 
 ### 3. Frontend Setup
 ```bash
@@ -99,10 +107,13 @@ cd client
 # Install dependencies
 npm install
 
+# Point the client at your local API
+echo "VITE_API_URL=http://localhost:4000" > .env.local
+
 # Start Vite development server
 npm run dev
 ```
-Frontend runs by default at `http://localhost:5173`.
+Frontend runs by default at `http://localhost:3000`.
 
 ---
 
@@ -111,7 +122,7 @@ Frontend runs by default at `http://localhost:5173`.
 ### Phase 1: Stabilization & Code Quality (Completed ✅)
 - [x] **Fix CI Workflow**: Updated `.github/workflows/ci.yml` from `node --check src/server.js` to `npm run typecheck` (`tsc --noEmit`) and Node 22 test runners.
 - [x] **Extract Service Layer**: Refactored controllers into lightweight HTTP adapters and created pure domain services (`workouts.service.ts`, `exercises.service.ts`).
-- [x] **Automated Testing Suite**: Native zero-dependency test runner (`node:test`) covering schemas, auth guards, Redis caching, telemetry ring buffers, and workout normalization (26 backend + 2 frontend tests).
+- [x] **Automated Testing Suite**: Native zero-dependency test runner (`node:test`) covering schemas, auth guards, Redis caching, telemetry ring buffers, workout normalization, and the chat assistant (86 backend + 8 frontend tests).
 - [x] **Pre-Push Quality Gate**: Git pre-push hook ([`.githooks/pre-push`](.githooks/pre-push)) verifying typechecks, test suites, and frontend build before any code leaves the developer machine.
 
 ### Phase 2: Core Domain & Analytics Enhancements

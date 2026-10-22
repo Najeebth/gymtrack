@@ -34,6 +34,11 @@ graph TD
         Validation["Zod Request Validation"]
         Controllers["Controllers (HTTP Adapters)"]
         Services["Services (WorkoutsService, ExercisesService)"]
+        ChatService["ChatService (rules → LLM → fallback)"]
+    end
+
+    subgraph External ["External AI"]
+        WorkersAI["Cloudflare Workers AI (REST, free daily quota)"]
     end
 
     subgraph Data ["Data & Storage Layer"]
@@ -53,6 +58,10 @@ graph TD
     AuthMiddleware --> Validation
     Validation --> Controllers
     Controllers --> Services
+    Controllers --> ChatService
+    ChatService -->|read-only tools| Services
+    ChatService -->|llmTrace wrapper| WorkersAI
+    ChatService -->|daily LLM quota| RedisCache
 
     Services -->|Check / Invalidate| RedisCache
     Services -->|dbTrace wrapper| PrismaORM
@@ -188,6 +197,71 @@ User avatars use an **enterprise zero-disk architecture**:
 
 ---
 
+### 2.6 Chat Assistant (Rules First, LLM Fallback)
+
+A floating assistant (`ChatWidget`) lets users log workouts and ask about their training in plain language. The design goal is **free, instant answers for common phrases**, with an LLM only for the long tail.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as ChatWidget (useChat)
+    participant API as POST /api/chat
+    participant Chat as ChatService
+    participant LLM as Workers AI
+    participant DB as PostgreSQL
+
+    User->>UI: "bench 3x8 60kg"
+    UI->>API: { message, today } (client's local date)
+    API->>Chat: requireAuth → chatRateLimit → Zod
+    Chat->>DB: save USER message
+    alt Rule intent matches (free, ~150ms)
+        Chat->>DB: read via WorkoutsService / ExercisesService
+    else No rule matches
+        Chat->>Chat: daily LLM quota check (Redis INCR, server clock)
+        loop max 3 tool rounds
+            Chat->>LLM: system prompt + last 10 messages + tools
+            LLM-->>Chat: tool call (validated with Zod) or final text
+        end
+    end
+    Chat->>DB: save ASSISTANT message (source + action)
+    Chat-->>UI: { userMessage, assistantMessage }
+    UI->>User: reply, or a draft card awaiting "Log for <date>"
+```
+
+**Layers** (`server/src/services/chat/`):
+
+| File | Responsibility |
+| :--- | :--- |
+| `intents.ts` | Pure regex parser: `LOG_WORKOUT`, `WORKOUTS_ON_DATE`, `PERSONAL_BEST`, `LAST_WORKOUT`, `GREETING`, `HELP`. Returns `null` to hand off to the LLM. |
+| `exerciseMatch.ts` | Resolves "bench" / "rdl" / "pull ups" to library names. Ranking: exact match > the user's own history > library, shortest name breaks ties. |
+| `tools.ts` | Read-only data access shared by rules and the LLM, with compact output to save tokens. |
+| `proposal.ts` | The LLM's `propose_workout_log` tool and lenient parsing of its arguments. |
+| `llmQuota.ts` | Per-user daily LLM cap (Redis `INCR`, in-memory fallback). |
+| `chat.service.ts` | Orchestration, the tool-calling loop, persistence to `ChatMessage`. |
+| `lib/llm.ts` | Provider-agnostic `LlmProvider` interface + `WorkersAiProvider`, timeouts, error mapping, `llmTrace`. |
+
+**Guardrails** (each one was added in response to observed model behavior, and is covered by tests using captured payloads):
+
+1. **The bot never writes workouts.** Logging returns a `CREATE_WORKOUT` draft. The client confirms it through `AppDataContext.createWorkout`, the same online/offline-queue path as the workout form.
+2. **`userId` never comes from the model.** Tools take it from the authenticated request, so prompt injection cannot read another account's data.
+3. **Model output is untrusted input.** Tool arguments are validated with Zod; unknown tools and bad arguments return an error object the model can read instead of throwing.
+4. **Remove options instead of asking nicely.** `propose_workout_log` is only offered when the message looks like a workout report (has numbers, isn't a question). The small model otherwise "proposed" invented workouts in reply to questions.
+5. **Bounded cost.** Max 3 tool rounds (the final round offers no tools), `max_tokens: 300`, 20 messages/minute per user, and a daily LLM cap keyed on the **server** clock (a client-supplied date could reset it).
+6. **Graceful degradation.** No credentials, quota exhausted, timeout, or provider error all produce a `FALLBACK` reply; rule-based commands keep working.
+7. **Transparency.** LLM replies are labeled in the UI; `ChatMessage.source` (`RULE` / `LLM` / `FALLBACK`) records which path answered, so frequent LLM questions can be promoted to rules.
+
+**Client-side duplicate protection:** only the newest draft is actionable, a ref blocks double taps, and confirmed/dismissed draft IDs are remembered per device in `localStorage` (guarded with try/catch).
+
+---
+
+### 2.7 Responsive Shell & Local Dates
+
+- The sidebar is a static column from the `md` breakpoint up and a slide-in drawer below it (opened from the header, closed on navigation, backdrop tap, or Escape). The chat panel is full screen on phones and a corner card on larger screens.
+- **"Today" is always the device's local date** (`localToday()` in `client/src/utils/date.ts`), never `toISOString()`, which is UTC and would date early-morning workouts as the previous day in timezones ahead of UTC.
+
+---
+
 ## 3. Database Schema Design (Prisma)
 
 ```
@@ -195,12 +269,14 @@ User avatars use an **enterprise zero-disk architecture**:
   │
   ├──────< [Template] 1 ───< [TemplateExercise]
   │
-  └──────< [Exercise] (Public or Custom)
+  ├──────< [Exercise] (Public or Custom)
+  │
+  └──────< [ChatMessage] (role, content, source, action JSON)
 ```
 
 - **Referential Integrity**: Cascading deletes (`onDelete: Cascade`) guarantee that removing a workout automatically wipes its nested sets, and removing an account purges all associated workout logs and private routines.
 - **Ownership Isolation**: Every query in [`workouts.controller.ts`](file:///d:/gymtrack/server/src/controllers/workouts.controller.ts) strictly filters by `userId: req.user.id`, preventing horizontal privilege escalation.
-- **Performance Indexes**: Multi-column indexes on `Exercise(muscleGroup)` and `Exercise(userId)` accelerate filtered and user-custom searches.
+- **Performance Indexes**: Multi-column indexes on `Exercise(muscleGroup)` and `Exercise(userId)` accelerate filtered and user-custom searches. A composite `ChatMessage(userId, createdAt)` index serves "this user's latest N messages" (filter column first, sort column second).
 
 ---
 
@@ -209,12 +285,16 @@ User avatars use an **enterprise zero-disk architecture**:
 1. **Type Safety Across the Wire**:
    - Frontend and backend TypeScript definitions mirror each other.
    - Runtime inputs are validated using Zod before reaching any business logic.
-2. **Defensive Async Handling**:
+2. **Validated Configuration**:
+   - [`config/env.ts`](file:///d:/gymtrack/server/src/config/env.ts) parses `process.env` with a Zod schema once at startup (defaults for local dev, typed exports).
+   - Production refuses to boot with the public development `JWT_SECRET`; optional integrations (B2, Workers AI) degrade gracefully when unset.
+3. **Defensive Async Handling**:
    - Unhandled rejections are caught by the centralized Express [`errorHandler.ts`](file:///d:/gymtrack/server/src/middleware/errorHandler.ts).
    - Redis operations are non-blocking; a Redis downtime never crashes an HTTP route.
-3. **Security Standards**:
+4. **Security Standards**:
    - Passwords hashed with Bcrypt (salt rounds: 10+).
    - Strict CORS origin whitelisting.
    - Helmet for HTTP header protection.
-   - Rate limiting per IP to mitigate brute force attempts.
+   - Rate limiting per IP to mitigate brute force attempts (per account for chat, so shared gym Wi-Fi doesn't collide).
+   - LLM output is treated as untrusted input: validated before use and never trusted for identity.
 
