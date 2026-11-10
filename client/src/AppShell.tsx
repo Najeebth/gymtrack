@@ -4,11 +4,14 @@ import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import ChatWidget from './components/chat/ChatWidget';
 import { useAppData } from './context/AppDataContext';
+import { useWorkoutSocket } from './hooks/useWorkoutSocket';
 
 // The authenticated app's chrome (navbar + sidebar + chat assistant). Rendered
 // around every page except the public landing page at "/" — see App.tsx.
 export default function AppShell() {
   const { authToken } = useAppData();
+  useWorkoutSocket();
+
   // Mobile navigation drawer (the sidebar is a static column from md up)
   const [navOpen, setNavOpen] = useState(false);
   const closeNav = useCallback(() => setNavOpen(false), []);

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { workoutsService, normalizeSets } from '../services/workouts.service.js';
+import { emitToUser } from '../lib/socket.js';
 
 // Re-export for backward compatibility with existing tests
 export { normalizeSets };
@@ -42,6 +43,7 @@ export async function createWorkout(req: Request, res: Response): Promise<void> 
       notes,
       sets,
     });
+    emitToUser(userId, 'workout:created', workout);
     res.status(201).json(workout);
   } catch (err) {
     console.error('Error creating workout in Postgres:', err);
@@ -73,6 +75,7 @@ export async function updateWorkout(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    emitToUser(userId, 'workout:updated', updated);
     res.json(updated);
   } catch (err) {
     console.error('Error updating workout in Postgres:', err);
@@ -101,6 +104,7 @@ export async function updateSet(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    emitToUser(userId, 'workout:updated', result.data);
     res.json(result.data);
   } catch (err) {
     console.error('Error updating set in Postgres:', err);
@@ -125,6 +129,7 @@ export async function addSets(req: Request, res: Response): Promise<void> {
       res.status(404).json({ error: 'Workout not found' });
       return;
     }
+    emitToUser(userId, 'workout:updated', updated);
     res.status(201).json(updated);
   } catch (err) {
     console.error('Error adding set(s) to workout in Postgres:', err);
@@ -145,6 +150,9 @@ export async function deleteSet(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    if (result.data) {
+      emitToUser(userId, 'workout:updated', result.data);
+    }
     res.json(result.data || { success: true });
   } catch (err) {
     console.error('Error deleting set in Postgres:', err);
@@ -163,6 +171,7 @@ export async function deleteWorkout(req: Request, res: Response): Promise<void> 
       res.status(404).json({ error: 'Workout not found or already deleted' });
       return;
     }
+    emitToUser(userId, 'workout:deleted', { id });
     res.json({ success: true, message: `Workout ${id} deleted` });
   } catch (err) {
     console.error('Error deleting workout in Postgres:', err);
