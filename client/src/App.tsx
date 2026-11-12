@@ -8,6 +8,7 @@ import RequireAuth from './components/RequireAuth';
 import AppShell from './AppShell';
 import AuthLayout from './AuthLayout';
 import LandingPage from './pages/LandingPage';
+import DashboardPage from './pages/DashboardPage';
 import WorkoutsPage from './pages/WorkoutsPage';
 import ByDatePage from './pages/ByDatePage';
 import ProgressPage from './pages/ProgressPage';
@@ -33,6 +34,14 @@ export default function App() {
               <Route path="/admin" element={<AdminPage />} />
             </Route>
             <Route element={<AppShell />}>
+              <Route
+                path="/dashboard"
+                element={
+                  <RequireAuth>
+                    <DashboardPage />
+                  </RequireAuth>
+                }
+              />
               <Route
                 path="/workouts"
                 element={
@@ -105,7 +114,7 @@ export default function App() {
                   </RequireAdmin>
                 }
               />
-              <Route path="*" element={<Navigate to="/workouts" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
           </Routes>
           <ToastStack />

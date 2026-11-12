@@ -14,7 +14,7 @@ export default function LoginPage() {
 
   // Covers both "already logged in" and "just logged in from this form".
   if (authToken) {
-    return <Navigate to="/workouts" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const isSignup = mode === 'signup';

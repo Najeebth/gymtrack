@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Dumbbell, CalendarDays, TrendingUp, ClipboardList, Library, Activity, ShieldCheck, Map, Users, X } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, CalendarDays, TrendingUp, ClipboardList, Library, Activity, ShieldCheck, Map, Users, X } from 'lucide-react';
 import { useAppData } from '../context/AppDataContext';
 
 const navItemClasses = ({ isActive }: { isActive: boolean }) =>
@@ -68,6 +68,9 @@ function NavItems() {
     <>
       <div className="text-xs font-bold text-brand-muted px-3 mb-2 uppercase tracking-wide">Home</div>
 
+      <NavLink to="/dashboard" className={navItemClasses}>
+        <LayoutDashboard size={18} /> Dashboard
+      </NavLink>
       <NavLink to="/workouts" className={navItemClasses}>
         <Dumbbell size={18} /> My Workouts
       </NavLink>
