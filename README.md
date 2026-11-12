@@ -122,7 +122,7 @@ Frontend runs by default at `http://localhost:3000`.
 ### Phase 1: Stabilization & Code Quality (Completed ✅)
 - [x] **Fix CI Workflow**: Updated `.github/workflows/ci.yml` from `node --check src/server.js` to `npm run typecheck` (`tsc --noEmit`) and Node 22 test runners.
 - [x] **Extract Service Layer**: Refactored controllers into lightweight HTTP adapters and created pure domain services (`workouts.service.ts`, `exercises.service.ts`).
-- [x] **Automated Testing Suite**: Native zero-dependency test runner (`node:test`) covering schemas, auth guards, Redis caching, telemetry ring buffers, workout normalization, and the chat assistant (86 backend + 8 frontend tests).
+- [x] **Automated Testing Suite**: Backend tests run on Jest (`@swc/jest` + `supertest`): 294 tests covering schemas, auth guards, Redis caching, telemetry ring buffers, the workouts and exercises services, rate limiting, error handling, and every HTTP route with Prisma, Redis and storage mocked. Frontend tests run on Vitest + React Testing Library (jsdom): 159 tests covering the dashboard, workout form, confirm dialog, sidebar, route guards, toasts, the API helpers and the date/chat/dashboard utilities. Run `npm test` (or `npm run test:coverage`) in `server/` or `client/`.
 - [x] **Pre-Push Quality Gate**: Git pre-push hook ([`.githooks/pre-push`](.githooks/pre-push)) verifying typechecks, test suites, and frontend build before any code leaves the developer machine.
 
 ### Phase 2: Core Domain & Analytics Enhancements
