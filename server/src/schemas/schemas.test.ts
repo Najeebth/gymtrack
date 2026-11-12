@@ -1,5 +1,3 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
 import { loginSchema, signupSchema } from './auth.schema.js';
 import { createWorkoutSchema, setInputSchema, updateSetSchema } from './workouts.schema.js';
 import { createExerciseSchema } from './exercises.schema.js';
@@ -8,15 +6,15 @@ import { chatMessageSchema } from './chat.schema.js';
 describe('Chat Schema Validation', () => {
   it('should accept a message with the client date and trim whitespace', () => {
     const result = chatMessageSchema.safeParse({ message: '  bench 3x8 60kg  ', today: '2026-10-23' });
-    assert.equal(result.success, true);
-    if (result.success) assert.equal(result.data.message, 'bench 3x8 60kg');
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.message).toBe('bench 3x8 60kg');
   });
 
   it('should reject empty, oversized, or undated messages', () => {
-    assert.equal(chatMessageSchema.safeParse({ message: '   ', today: '2026-10-23' }).success, false);
-    assert.equal(chatMessageSchema.safeParse({ message: 'x'.repeat(501), today: '2026-10-23' }).success, false);
-    assert.equal(chatMessageSchema.safeParse({ message: 'hi' }).success, false);
-    assert.equal(chatMessageSchema.safeParse({ message: 'hi', today: '23/10/2026' }).success, false);
+    expect(chatMessageSchema.safeParse({ message: '   ', today: '2026-10-23' }).success).toBe(false);
+    expect(chatMessageSchema.safeParse({ message: 'x'.repeat(501), today: '2026-10-23' }).success).toBe(false);
+    expect(chatMessageSchema.safeParse({ message: 'hi' }).success).toBe(false);
+    expect(chatMessageSchema.safeParse({ message: 'hi', today: '23/10/2026' }).success).toBe(false);
   });
 });
 
@@ -24,24 +22,24 @@ describe('Auth Schemas Validation', () => {
   it('should accept valid login credentials', () => {
     const valid = { email: 'athlete@gymtrack.io', password: 'secretpassword123' };
     const result = loginSchema.safeParse(valid);
-    assert.equal(result.success, true);
+    expect(result.success).toBe(true);
   });
 
   it('should reject invalid email formats', () => {
     const invalid = { email: 'not-an-email', password: 'secretpassword123' };
     const result = loginSchema.safeParse(invalid);
-    assert.equal(result.success, false);
+    expect(result.success).toBe(false);
     if (!result.success) {
-      assert.match(result.error.issues[0].message, /valid email/i);
+      expect(result.error.issues[0].message).toMatch(/valid email/i);
     }
   });
 
   it('should reject passwords shorter than 4 characters', () => {
     const invalid = { email: 'user@example.com', password: '12' };
     const result = signupSchema.safeParse(invalid);
-    assert.equal(result.success, false);
+    expect(result.success).toBe(false);
     if (!result.success) {
-      assert.match(result.error.issues[0].message, /at least 4 characters/i);
+      expect(result.error.issues[0].message).toMatch(/at least 4 characters/i);
     }
   });
 });
@@ -50,19 +48,19 @@ describe('Workout Schemas Validation', () => {
   it('should coerce and validate numeric sets properly', () => {
     const rawSet = { reps: '10', weightKg: '80.5' };
     const parsed = setInputSchema.safeParse(rawSet);
-    assert.equal(parsed.success, true);
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
-      assert.equal(parsed.data.reps, 10);
-      assert.equal(parsed.data.weightKg, 80.5);
+      expect(parsed.data.reps).toBe(10);
+      expect(parsed.data.weightKg).toBe(80.5);
     }
   });
 
   it('should reject negative reps and negative weights', () => {
     const invalidReps = setInputSchema.safeParse({ reps: 0, weightKg: 50 });
-    assert.equal(invalidReps.success, false);
+    expect(invalidReps.success).toBe(false);
 
     const invalidWeight = setInputSchema.safeParse({ reps: 10, weightKg: -5 });
-    assert.equal(invalidWeight.success, false);
+    expect(invalidWeight.success).toBe(false);
   });
 
   it('should enforce date format YYYY-MM-DD on workout creation', () => {
@@ -74,14 +72,14 @@ describe('Workout Schemas Validation', () => {
       sets: [{ reps: 8, weightKg: 100 }],
     };
     const validResult = createWorkoutSchema.safeParse(validWorkout);
-    assert.equal(validResult.success, true);
+    expect(validResult.success).toBe(true);
 
     const invalidDate = {
       ...validWorkout,
       date: '18-10-2026', // wrong date format
     };
     const invalidResult = createWorkoutSchema.safeParse(invalidDate);
-    assert.equal(invalidResult.success, false);
+    expect(invalidResult.success).toBe(false);
   });
 
   it('should require at least one set in a new workout', () => {
@@ -92,16 +90,16 @@ describe('Workout Schemas Validation', () => {
       sets: [],
     };
     const result = createWorkoutSchema.safeParse(noSets);
-    assert.equal(result.success, false);
+    expect(result.success).toBe(false);
   });
 
   it('should allow partial updates on setSchema', () => {
     const partialUpdate = { reps: 12 };
     const result = updateSetSchema.safeParse(partialUpdate);
-    assert.equal(result.success, true);
+    expect(result.success).toBe(true);
     if (result.success) {
-      assert.equal(result.data.reps, 12);
-      assert.equal(result.data.weightKg, undefined);
+      expect(result.data.reps).toBe(12);
+      expect(result.data.weightKg).toBe(undefined);
     }
   });
 });
@@ -114,10 +112,10 @@ describe('Exercise Schemas Validation', () => {
       notes: 'Standing strict press',
     };
     const result = createExerciseSchema.safeParse(rawExercise);
-    assert.equal(result.success, true);
+    expect(result.success).toBe(true);
     if (result.success) {
-      assert.equal(result.data.name, 'Overhead Press');
-      assert.equal(result.data.equipment, 'Other'); // default value
+      expect(result.data.name).toBe('Overhead Press');
+      expect(result.data.equipment).toBe('Other'); // default value
     }
   });
 
@@ -126,7 +124,7 @@ describe('Exercise Schemas Validation', () => {
       name: 'A',
       muscleGroup: 'Chest',
     });
-    assert.equal(result.success, false);
+    expect(result.success).toBe(false);
   });
 });
 

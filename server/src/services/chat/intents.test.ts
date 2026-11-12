@@ -1,5 +1,3 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
 import { parseIntent, shiftDate } from './intents.js';
 import { matchExercise } from './exerciseMatch.js';
 
@@ -7,7 +5,7 @@ const ctx = { today: '2026-10-22' };
 
 describe('parseIntent - LOG_WORKOUT', () => {
   it('should parse "<exercise> <sets>x<reps> <weight>kg"', () => {
-    assert.deepEqual(parseIntent('bench 3x8 60kg', ctx), {
+    expect(parseIntent('bench 3x8 60kg', ctx)).toEqual({
       type: 'LOG_WORKOUT',
       exercise: 'bench',
       sets: [
@@ -20,115 +18,115 @@ describe('parseIntent - LOG_WORKOUT', () => {
 
   it('should accept prefixes, @, and decimal weights', () => {
     const intent = parseIntent('Log squat 5x5 @ 102.5', ctx);
-    assert.equal(intent?.type, 'LOG_WORKOUT');
+    expect(intent?.type).toBe('LOG_WORKOUT');
     if (intent?.type === 'LOG_WORKOUT') {
-      assert.equal(intent.exercise, 'squat');
-      assert.equal(intent.sets.length, 5);
-      assert.equal(intent.sets[0].weightKg, 102.5);
+      expect(intent.exercise).toBe('squat');
+      expect(intent.sets.length).toBe(5);
+      expect(intent.sets[0].weightKg).toBe(102.5);
     }
   });
 
   it('should parse "N sets of M at W" phrasing', () => {
     const intent = parseIntent('deadlift 3 sets of 5 at 140kg', ctx);
-    assert.ok(intent?.type === 'LOG_WORKOUT');
-    assert.deepEqual(intent.sets[0], { reps: 5, weightKg: 140 });
+    if (intent?.type !== 'LOG_WORKOUT') throw new Error('expected a LOG_WORKOUT intent');
+    expect(intent.sets[0]).toEqual({ reps: 5, weightKg: 140 });
   });
 
   it('should parse weight-first phrasing', () => {
     const intent = parseIntent('incline db press 30kg 4x10', ctx);
-    assert.ok(intent?.type === 'LOG_WORKOUT');
-    assert.equal(intent.exercise, 'incline db press');
-    assert.deepEqual(intent.sets[3], { reps: 10, weightKg: 30 });
+    if (intent?.type !== 'LOG_WORKOUT') throw new Error('expected a LOG_WORKOUT intent');
+    expect(intent.exercise).toBe('incline db press');
+    expect(intent.sets[3]).toEqual({ reps: 10, weightKg: 30 });
   });
 
   it('should treat a missing weight as bodyweight (0 kg)', () => {
     const intent = parseIntent('pull-ups 3x10', ctx);
-    assert.ok(intent?.type === 'LOG_WORKOUT');
-    assert.equal(intent.sets[0].weightKg, 0);
+    if (intent?.type !== 'LOG_WORKOUT') throw new Error('expected a LOG_WORKOUT intent');
+    expect(intent.sets[0].weightKg).toBe(0);
   });
 
   it('should convert lbs to kg', () => {
     const intent = parseIntent('bench 3x5 225lbs', ctx);
-    assert.ok(intent?.type === 'LOG_WORKOUT');
-    assert.equal(intent.sets[0].weightKg, 102.1);
+    if (intent?.type !== 'LOG_WORKOUT') throw new Error('expected a LOG_WORKOUT intent');
+    expect(intent.sets[0].weightKg).toBe(102.1);
   });
 
   it('should reject implausible numbers so the LLM can handle them', () => {
-    assert.equal(parseIntent('bench 50x8 60kg', ctx), null);
-    assert.equal(parseIntent('squat 3x5 5000kg', ctx), null);
+    expect(parseIntent('bench 50x8 60kg', ctx)).toBe(null);
+    expect(parseIntent('squat 3x5 5000kg', ctx)).toBe(null);
   });
 
   it('should prefer logging over date questions', () => {
     const intent = parseIntent('log bench 3x8 60kg today', ctx);
-    assert.ok(intent?.type === 'LOG_WORKOUT');
-    assert.equal(intent.exercise, 'bench');
-    assert.equal(parseIntent('bench 3x8 today', ctx)?.type, 'LOG_WORKOUT');
+    if (intent?.type !== 'LOG_WORKOUT') throw new Error('expected a LOG_WORKOUT intent');
+    expect(intent.exercise).toBe('bench');
+    expect(parseIntent('bench 3x8 today', ctx)?.type).toBe('LOG_WORKOUT');
   });
 });
 
 describe('parseIntent - questions', () => {
   it('should resolve today and yesterday from the client date', () => {
-    assert.deepEqual(parseIntent('what did I do today?', ctx), { type: 'WORKOUTS_ON_DATE', date: '2026-10-22' });
-    assert.deepEqual(parseIntent("show yesterday's workout", ctx), { type: 'WORKOUTS_ON_DATE', date: '2026-10-21' });
-    assert.deepEqual(parseIntent('workouts on 2026-10-01', ctx), { type: 'WORKOUTS_ON_DATE', date: '2026-10-01' });
+    expect(parseIntent('what did I do today?', ctx)).toEqual({ type: 'WORKOUTS_ON_DATE', date: '2026-10-22' });
+    expect(parseIntent("show yesterday's workout", ctx)).toEqual({ type: 'WORKOUTS_ON_DATE', date: '2026-10-21' });
+    expect(parseIntent('workouts on 2026-10-01', ctx)).toEqual({ type: 'WORKOUTS_ON_DATE', date: '2026-10-01' });
   });
 
   it('should treat a bare date as a workouts-on-date question', () => {
     // From real use: "yesterday" alone went to the LLM, which leaked tool-call text
-    assert.deepEqual(parseIntent('yesterday', ctx), { type: 'WORKOUTS_ON_DATE', date: '2026-10-21' });
-    assert.deepEqual(parseIntent('and today?', ctx), { type: 'WORKOUTS_ON_DATE', date: '2026-10-22' });
-    assert.deepEqual(parseIntent('yesterday workouts', ctx), { type: 'WORKOUTS_ON_DATE', date: '2026-10-21' });
+    expect(parseIntent('yesterday', ctx)).toEqual({ type: 'WORKOUTS_ON_DATE', date: '2026-10-21' });
+    expect(parseIntent('and today?', ctx)).toEqual({ type: 'WORKOUTS_ON_DATE', date: '2026-10-22' });
+    expect(parseIntent('yesterday workouts', ctx)).toEqual({ type: 'WORKOUTS_ON_DATE', date: '2026-10-21' });
   });
 
   it('should understand day-of-month and month-name dates', () => {
     const on = (text: string) => (parseIntent(text, ctx) as { date?: string } | null)?.date;
-    assert.equal(on('ok workouts done in 17 of this month'), '2026-10-17'); // from real use
-    assert.equal(on('on the 17th'), '2026-10-17');
-    assert.equal(on('what did I do on oct 17'), '2026-10-17');
-    assert.equal(on('workouts 17 october'), '2026-10-17');
-    assert.equal(on('show 17/10'), '2026-10-17');
+    expect(on('ok workouts done in 17 of this month')).toBe('2026-10-17'); // from real use
+    expect(on('on the 17th')).toBe('2026-10-17');
+    expect(on('what did I do on oct 17')).toBe('2026-10-17');
+    expect(on('workouts 17 october')).toBe('2026-10-17');
+    expect(on('show 17/10')).toBe('2026-10-17');
   });
 
   it('should never resolve a yearless date into the future', () => {
     const on = (text: string) => (parseIntent(text, ctx) as { date?: string } | null)?.date;
-    assert.equal(on('on the 25th'), '2026-09-25'); // the 25th hasn't happened yet this month
-    assert.equal(on('workouts on dec 3'), '2025-12-03');
-    assert.equal(on('on the 31st'), '2026-08-31'); // September has no 31st, so the most recent one is August's
-    assert.equal(parseIntent('on the 5th', { today: '2026-01-03' }) && (parseIntent('on the 5th', { today: '2026-01-03' }) as { date: string }).date, '2025-12-05');
+    expect(on('on the 25th')).toBe('2026-09-25'); // the 25th hasn't happened yet this month
+    expect(on('workouts on dec 3')).toBe('2025-12-03');
+    expect(on('on the 31st')).toBe('2026-08-31'); // September has no 31st, so the most recent one is August's
+    expect(parseIntent('on the 5th', { today: '2026-01-03' }) && (parseIntent('on the 5th', { today: '2026-01-03' }) as { date: string }).date).toBe('2025-12-05');
   });
 
   it('should leave invalid dates and non-date questions to the LLM', () => {
-    assert.equal(parseIntent('show 31/02', ctx), null);
-    assert.equal(parseIntent('why was my squat weak yesterday', ctx), null);
+    expect(parseIntent('show 31/02', ctx)).toBe(null);
+    expect(parseIntent('why was my squat weak yesterday', ctx)).toBe(null);
   });
 
   it('should parse personal best questions', () => {
-    assert.deepEqual(parseIntent("What's my best squat?", ctx), { type: 'PERSONAL_BEST', exercise: 'squat' });
-    assert.deepEqual(parseIntent('pr bench', ctx), { type: 'PERSONAL_BEST', exercise: 'bench' });
-    assert.deepEqual(parseIntent('deadlift max', ctx), { type: 'PERSONAL_BEST', exercise: 'deadlift' });
+    expect(parseIntent("What's my best squat?", ctx)).toEqual({ type: 'PERSONAL_BEST', exercise: 'squat' });
+    expect(parseIntent('pr bench', ctx)).toEqual({ type: 'PERSONAL_BEST', exercise: 'bench' });
+    expect(parseIntent('deadlift max', ctx)).toEqual({ type: 'PERSONAL_BEST', exercise: 'deadlift' });
   });
 
   it('should distinguish muscle groups from exercises for last workout', () => {
-    assert.deepEqual(parseIntent('last chest workout', ctx), { type: 'LAST_WORKOUT', muscleGroup: 'Chest' });
-    assert.deepEqual(parseIntent('when did I last train legs', ctx), { type: 'LAST_WORKOUT', muscleGroup: 'Legs' });
-    assert.deepEqual(parseIntent('last time I did squats', ctx), { type: 'LAST_WORKOUT', exercise: 'squats' });
+    expect(parseIntent('last chest workout', ctx)).toEqual({ type: 'LAST_WORKOUT', muscleGroup: 'Chest' });
+    expect(parseIntent('when did I last train legs', ctx)).toEqual({ type: 'LAST_WORKOUT', muscleGroup: 'Legs' });
+    expect(parseIntent('last time I did squats', ctx)).toEqual({ type: 'LAST_WORKOUT', exercise: 'squats' });
   });
 
   it('should recognise greetings and help', () => {
-    assert.deepEqual(parseIntent('Hey!', ctx), { type: 'GREETING' });
-    assert.deepEqual(parseIntent('what can you do?', ctx), { type: 'HELP' });
+    expect(parseIntent('Hey!', ctx)).toEqual({ type: 'GREETING' });
+    expect(parseIntent('what can you do?', ctx)).toEqual({ type: 'HELP' });
   });
 
   it('should return null for open-ended questions (LLM fallback)', () => {
-    assert.equal(parseIntent('why has my squat stalled for 3 weeks?', ctx), null);
-    assert.equal(parseIntent('suggest a shoulder-friendly push day', ctx), null);
-    assert.equal(parseIntent('', ctx), null);
+    expect(parseIntent('why has my squat stalled for 3 weeks?', ctx)).toBe(null);
+    expect(parseIntent('suggest a shoulder-friendly push day', ctx)).toBe(null);
+    expect(parseIntent('', ctx)).toBe(null);
   });
 });
 
 describe('shiftDate', () => {
   it('should cross month boundaries', () => {
-    assert.equal(shiftDate('2026-11-01', -1), '2026-10-31');
+    expect(shiftDate('2026-11-01', -1)).toBe('2026-10-31');
   });
 });
 
@@ -144,23 +142,23 @@ describe('matchExercise', () => {
   ];
 
   it('should resolve short names and aliases to library names', () => {
-    assert.equal(matchExercise('bench', { history: [], library }), 'Barbell Bench Press');
-    assert.equal(matchExercise('squats', { history: [], library }), 'Barbell Squat');
-    assert.equal(matchExercise('rdl', { history: [], library }), 'Romanian Deadlift');
-    assert.equal(matchExercise('pullups', { history: [], library }), 'Pull-Up');
-    assert.equal(matchExercise('pull ups', { history: [], library }), 'Pull-Up'); // seen from the live model
-    assert.equal(matchExercise('incline db press', { history: [], library }), 'Incline Dumbbell Press');
+    expect(matchExercise('bench', { history: [], library })).toBe('Barbell Bench Press');
+    expect(matchExercise('squats', { history: [], library })).toBe('Barbell Squat');
+    expect(matchExercise('rdl', { history: [], library })).toBe('Romanian Deadlift');
+    expect(matchExercise('pullups', { history: [], library })).toBe('Pull-Up');
+    expect(matchExercise('pull ups', { history: [], library })).toBe('Pull-Up'); // seen from the live model
+    expect(matchExercise('incline db press', { history: [], library })).toBe('Incline Dumbbell Press');
   });
 
   it('should prefer an exact match over a longer one', () => {
-    assert.equal(matchExercise('deadlift', { history: [], library }), 'Deadlift');
+    expect(matchExercise('deadlift', { history: [], library })).toBe('Deadlift');
   });
 
   it("should prefer the user's own history on ambiguity", () => {
-    assert.equal(matchExercise('bench', { history: ['Close-Grip Bench Press'], library }), 'Close-Grip Bench Press');
+    expect(matchExercise('bench', { history: ['Close-Grip Bench Press'], library })).toBe('Close-Grip Bench Press');
   });
 
   it('should return null when nothing contains every word', () => {
-    assert.equal(matchExercise('zercher squat', { history: [], library }), null);
+    expect(matchExercise('zercher squat', { history: [], library })).toBe(null);
   });
 });

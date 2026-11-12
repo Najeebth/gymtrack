@@ -1,9 +1,7 @@
-import { describe, it, after } from 'node:test';
-import assert from 'node:assert/strict';
 import { cacheAside, isRedisConnected, redis } from './redis.js';
 
 describe('Redis Cache-Aside & Resilience', () => {
-  after(() => {
+  afterAll(() => {
     if (redis) {
       redis.disconnect();
     }
@@ -18,21 +16,21 @@ describe('Redis Cache-Aside & Resilience', () => {
       return testData;
     });
 
-    assert.equal(fetcherCalled, true);
-    assert.deepEqual(result, testData);
+    expect(fetcherCalled).toBe(true);
+    expect(result).toEqual(testData);
   });
 
   it('should handle null/undefined results from fetcher gracefully', async () => {
     const resultNull = await cacheAside('test:null:key', 60, async () => null);
-    assert.equal(resultNull, null);
+    expect(resultNull).toBe(null);
 
     const resultUndefined = await cacheAside('test:undefined:key', 60, async () => undefined);
-    assert.equal(resultUndefined, undefined);
+    expect(resultUndefined).toBe(undefined);
   });
 
   it('should expose connection status as a boolean', () => {
     const connected = isRedisConnected();
-    assert.equal(typeof connected, 'boolean');
+    expect(typeof connected).toBe('boolean');
   });
 });
 

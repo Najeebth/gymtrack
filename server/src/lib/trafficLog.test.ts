@@ -1,5 +1,3 @@
-import { describe, it, beforeEach } from 'node:test';
-import assert from 'node:assert/strict';
 import {
   recordDbQuery,
   resetLastDbQuery,
@@ -18,7 +16,7 @@ describe('Traffic & Telemetry In-Memory Log Buffer', () => {
   });
 
   it('should record, retrieve, and reset last DB query', () => {
-    assert.equal(getLastDbQuery(), null);
+    expect(getLastDbQuery()).toBe(null);
 
     const sampleQuery: DbQueryInfo = {
       query: 'findMany Workout (ordered by createdAt desc)',
@@ -27,10 +25,10 @@ describe('Traffic & Telemetry In-Memory Log Buffer', () => {
     };
 
     recordDbQuery(sampleQuery);
-    assert.deepEqual(getLastDbQuery(), sampleQuery);
+    expect(getLastDbQuery()).toEqual(sampleQuery);
 
     resetLastDbQuery();
-    assert.equal(getLastDbQuery(), null);
+    expect(getLastDbQuery()).toBe(null);
   });
 
   it('should store requests in reverse chronological order (newest first)', () => {
@@ -62,9 +60,9 @@ describe('Traffic & Telemetry In-Memory Log Buffer', () => {
     addRequestLog(entry2);
 
     const logs = getRequestLogs();
-    assert.equal(logs.length, 2);
-    assert.equal(logs[0].id, 'trace-2'); // newest is at index 0
-    assert.equal(logs[1].id, 'trace-1');
+    expect(logs.length).toBe(2);
+    expect(logs[0].id).toBe('trace-2'); // newest is at index 0
+    expect(logs[1].id).toBe('trace-1');
   });
 
   it('should cap log buffer at 50 entries and drop oldest entries', () => {
@@ -83,8 +81,8 @@ describe('Traffic & Telemetry In-Memory Log Buffer', () => {
     }
 
     const logs = getRequestLogs();
-    assert.equal(logs.length, 50); // MAX_LOGS
-    assert.equal(logs[0].id, 'trace-60'); // most recent
-    assert.equal(logs[49].id, 'trace-11'); // oldest retained (1-10 were dropped)
+    expect(logs.length).toBe(50); // MAX_LOGS
+    expect(logs[0].id).toBe('trace-60'); // most recent
+    expect(logs[49].id).toBe('trace-11'); // oldest retained (1-10 were dropped)
   });
 });

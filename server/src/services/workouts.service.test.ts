@@ -1,5 +1,3 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
 import { normalizeSets } from './workouts.service.js';
 
 describe('WorkoutsService - Core Logic', () => {
@@ -11,26 +9,26 @@ describe('WorkoutsService - Core Logic', () => {
     ];
 
     const normalized = normalizeSets(raw);
-    assert.equal(normalized.length, 3);
-    assert.deepEqual(normalized[0], { setNumber: 1, reps: 10, weightKg: 100 });
-    assert.deepEqual(normalized[1], { setNumber: 2, reps: 8, weightKg: 105 });
-    assert.deepEqual(normalized[2], { setNumber: 3, reps: 6, weightKg: 110 });
+    expect(normalized.length).toBe(3);
+    expect(normalized[0]).toEqual({ setNumber: 1, reps: 10, weightKg: 100 });
+    expect(normalized[1]).toEqual({ setNumber: 2, reps: 8, weightKg: 105 });
+    expect(normalized[2]).toEqual({ setNumber: 3, reps: 6, weightKg: 110 });
   });
 
   it('should safely coerce numeric strings into floating point and integers', () => {
     const raw = [{ reps: '12', weightKg: '72.5' }];
     const normalized = normalizeSets(raw);
 
-    assert.equal(normalized[0].reps, 12);
-    assert.equal(normalized[0].weightKg, 72.5);
-    assert.equal(typeof normalized[0].reps, 'number');
-    assert.equal(typeof normalized[0].weightKg, 'number');
+    expect(normalized[0].reps).toBe(12);
+    expect(normalized[0].weightKg).toBe(72.5);
+    expect(typeof normalized[0].reps).toBe('number');
+    expect(typeof normalized[0].weightKg).toBe('number');
   });
 
   it('should return empty list when given invalid or empty set arrays', () => {
-    assert.deepEqual(normalizeSets([]), []);
-    assert.deepEqual(normalizeSets(null as any), []);
-    assert.deepEqual(normalizeSets(undefined as any), []);
+    expect(normalizeSets([])).toEqual([]);
+    expect(normalizeSets(null as any)).toEqual([]);
+    expect(normalizeSets(undefined as any)).toEqual([]);
   });
 });
 

@@ -1,5 +1,3 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
 import jwt from 'jsonwebtoken';
 import { requireAuth, requireAdmin } from './auth.js';
 import { JWT_SECRET } from '../config/env.js';
@@ -37,9 +35,9 @@ describe('Authentication & Authorization Middlewares', () => {
       nextCalled = true;
     });
 
-    assert.equal(nextCalled, false);
-    assert.equal(res.statusCode, 401);
-    assert.match(res.body.error, /no token provided/i);
+    expect(nextCalled).toBe(false);
+    expect(res.statusCode).toBe(401);
+    expect(res.body.error).toMatch(/no token provided/i);
   });
 
   it('should reject requests with non-Bearer Authorization header (401)', async () => {
@@ -51,9 +49,9 @@ describe('Authentication & Authorization Middlewares', () => {
       nextCalled = true;
     });
 
-    assert.equal(nextCalled, false);
-    assert.equal(res.statusCode, 401);
-    assert.match(res.body.error, /no token provided/i);
+    expect(nextCalled).toBe(false);
+    expect(res.statusCode).toBe(401);
+    expect(res.body.error).toMatch(/no token provided/i);
   });
 
   it('should reject invalid or tampered JWT tokens (401)', async () => {
@@ -65,9 +63,9 @@ describe('Authentication & Authorization Middlewares', () => {
       nextCalled = true;
     });
 
-    assert.equal(nextCalled, false);
-    assert.equal(res.statusCode, 401);
-    assert.match(res.body.error, /invalid token/i);
+    expect(nextCalled).toBe(false);
+    expect(res.statusCode).toBe(401);
+    expect(res.body.error).toMatch(/invalid token/i);
   });
 
   it('should reject expired tokens or tokens signed with a different secret (401)', async () => {
@@ -80,9 +78,9 @@ describe('Authentication & Authorization Middlewares', () => {
       nextCalled = true;
     });
 
-    assert.equal(nextCalled, false);
-    assert.equal(res.statusCode, 401);
-    assert.match(res.body.error, /invalid token/i);
+    expect(nextCalled).toBe(false);
+    expect(res.statusCode).toBe(401);
+    expect(res.body.error).toMatch(/invalid token/i);
   });
 });
 
