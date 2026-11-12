@@ -27,7 +27,7 @@
        refactor pass. Everything else from `strict` stays on. */
     "allowJs": true,
 
-    "types": ["vite/client"]
+    "types": ["vite/client", "vitest/globals"]
   },
   "include": ["src"]
 }

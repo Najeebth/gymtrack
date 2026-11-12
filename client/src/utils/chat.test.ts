@@ -1,5 +1,3 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
 import { latestActionableId, readActionStatuses, toWorkoutDraft, writeActionStatus } from './chat.ts';
 import type { ChatMessage } from '../types/index.ts';
 
@@ -26,7 +24,7 @@ function msg(id: string, withAction: boolean): ChatMessage {
 
 describe('Chat utilities (Frontend)', () => {
   it('should convert a bot draft into the create-workout payload', () => {
-    assert.deepEqual(toWorkoutDraft(draft), {
+    expect(toWorkoutDraft(draft)).toEqual({
       date: '2026-10-23',
       muscleGroup: 'Legs',
       exercise: 'Barbell Squat',
@@ -36,29 +34,29 @@ describe('Chat utilities (Frontend)', () => {
   });
 
   it('should only treat the newest draft as actionable', () => {
-    assert.equal(latestActionableId([msg('a', true), msg('b', false), msg('c', true), msg('d', false)]), 'c');
-    assert.equal(latestActionableId([msg('a', false)]), null);
+    expect(latestActionableId([msg('a', true), msg('b', false), msg('c', true), msg('d', false)])).toBe('c');
+    expect(latestActionableId([msg('a', false)])).toBe(null);
   });
 
   it('should remember action statuses across reads', () => {
     const storage = memoryStorage();
     writeActionStatus('m1', 'saved', storage);
     writeActionStatus('m2', 'dismissed', storage);
-    assert.deepEqual(readActionStatuses(storage), { m1: 'saved', m2: 'dismissed' });
+    expect(readActionStatuses(storage)).toEqual({ m1: 'saved', m2: 'dismissed' });
   });
 
   it('should keep only the most recent 100 statuses', () => {
     const storage = memoryStorage();
     for (let i = 0; i < 105; i++) writeActionStatus(`m${i}`, 'saved', storage);
     const statuses = readActionStatuses(storage);
-    assert.equal(Object.keys(statuses).length, 100);
-    assert.equal(statuses.m0, undefined);
-    assert.equal(statuses.m104, 'saved');
+    expect(Object.keys(statuses).length).toBe(100);
+    expect(statuses.m0).toBe(undefined);
+    expect(statuses.m104).toBe('saved');
   });
 
   it('should survive corrupt or unavailable storage', () => {
     const corrupt = { getItem: () => '{not json', setItem: () => {} };
-    assert.deepEqual(readActionStatuses(corrupt), {});
+    expect(readActionStatuses(corrupt)).toEqual({});
 
     const throwing = {
       getItem: () => {
@@ -68,8 +66,8 @@ describe('Chat utilities (Frontend)', () => {
         throw new Error('blocked');
       },
     };
-    assert.deepEqual(readActionStatuses(throwing), {});
-    assert.deepEqual(writeActionStatus('m1', 'saved', throwing), { m1: 'saved' });
-    assert.deepEqual(readActionStatuses(null), {});
+    expect(readActionStatuses(throwing)).toEqual({});
+    expect(writeActionStatus('m1', 'saved', throwing)).toEqual({ m1: 'saved' });
+    expect(readActionStatuses(null)).toEqual({});
   });
 });
