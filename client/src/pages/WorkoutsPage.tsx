@@ -189,8 +189,9 @@ export default function WorkoutsPage() {
 
         <div className="grid grid-cols-2 gap-2.5 mb-3">
           <div>
-            <label className={fieldLabel}>Date</label>
+            <label htmlFor="log-date" className={fieldLabel}>Date</label>
             <input
+              id="log-date"
               type="date"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -198,8 +199,9 @@ export default function WorkoutsPage() {
             />
           </div>
           <div>
-            <label className={fieldLabel}>Muscle Group</label>
+            <label htmlFor="log-muscle-group" className={fieldLabel}>Muscle Group</label>
             <select
+              id="log-muscle-group"
               value={formData.muscleGroup}
               onChange={(e) => setFormData({ ...formData, muscleGroup: e.target.value, exercise: '' })}
               className={fieldInput}
