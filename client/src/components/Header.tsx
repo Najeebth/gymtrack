@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
-  Activity,
   Dumbbell,
   Zap,
   User,
@@ -109,10 +108,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </button>
         <Dumbbell size={28} />
         <span className="text-xl font-bold text-brand-navy">GymTrack</span>
-      </div>
-
-      <div className="hidden lg:flex items-center bg-slate-50 border border-brand-border rounded-full px-4 py-1.5 w-[300px] text-brand-muted">
-        <Activity size={16} className="mr-2" /> Search...
       </div>
 
       <div className="flex items-center gap-3 md:gap-4">
