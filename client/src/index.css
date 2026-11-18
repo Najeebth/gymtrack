@@ -35,3 +35,31 @@ button, input, select, textarea {
     animation: none;
   }
 }
+
+/* Kinetic Obsidian Design Utilities from Stitch */
+.glass-panel {
+  background: rgba(15, 20, 32, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.input-ambient-glow:focus-within {
+  box-shadow: 0 0 0 1px #f97316, 0 0 20px -3px rgba(249, 115, 22, 0.25);
+}
+
+/* Prevent Chrome/Safari autofill from turning dark inputs white */
+.dark-input {
+  background-color: transparent !important;
+  color: #f1f5f9 !important;
+}
+
+.dark-input:-webkit-autofill,
+.dark-input:-webkit-autofill:hover,
+.dark-input:-webkit-autofill:focus,
+.dark-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f1f5f9 !important;
+  -webkit-box-shadow: 0 0 0px 1000px #121722 inset !important;
+  box-shadow: 0 0 0px 1000px #121722 inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
