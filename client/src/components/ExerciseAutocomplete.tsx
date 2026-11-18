@@ -51,15 +51,22 @@ export default function ExerciseAutocomplete({
     limit: 50,
   });
 
-  // Build full list of suggestions for this muscle group
-  const fullList: SuggestionOption[] =
-    dbExercises.length > 0
-      ? dbExercises.map((ex) => ({
-          name: ex.name,
-          equipment: ex.equipment,
-          isCustom: ex.isCustom,
-        }))
-      : (COMMON_EXERCISES[muscleGroup as MuscleGroup] || []).map((name) => ({ name }));
+  // Build full list of suggestions for this muscle group:
+  // Combine database exercises with built-in common exercises so custom exercises
+  // never wipe out standard options, even if the DB hasn't been seeded yet.
+  const commonForGroup = COMMON_EXERCISES[muscleGroup as MuscleGroup] || [];
+  const existingNames = new Set(dbExercises.map((ex) => ex.name.toLowerCase()));
+
+  const fullList: SuggestionOption[] = [
+    ...dbExercises.map((ex) => ({
+      name: ex.name,
+      equipment: ex.equipment,
+      isCustom: ex.isCustom,
+    })),
+    ...commonForGroup
+      .filter((name) => !existingNames.has(name.toLowerCase()))
+      .map((name) => ({ name, isCustom: false })),
+  ];
 
   const lowerValue = (value || '').trim().toLowerCase();
 
